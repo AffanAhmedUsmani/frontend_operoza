@@ -11,7 +11,7 @@ async function fetchCampaigns(accessToken) {
     method: "GET",
     headers: authHeaders(accessToken),
   });
-  return Array.isArray(data.items) ? data.items : [];
+  return Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [];
 }
 
 async function createCampaign(accessToken, payload) {
