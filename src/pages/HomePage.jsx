@@ -21,6 +21,8 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
@@ -140,6 +142,8 @@ function BulletList({ items, errorTone = false }) {
 }
 
 function HomePage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [liveCrmRows, setLiveCrmRows] = useState([]);
   const [isLoadingLiveCrm, setIsLoadingLiveCrm] = useState(true);
   const [liveCrmError, setLiveCrmError] = useState("");
@@ -296,48 +300,51 @@ function HomePage() {
             A quick public snapshot of active tenant workspaces and their current user activity.
           </Typography>
           <Card sx={{ border: "1px solid #ead8c4" }}>
-            <TableContainer>
-              <Table size="small" aria-label="Live CRM workspaces">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>CRM Workspace</TableCell>
-                    <TableCell>Live URL</TableCell>
-                    <TableCell align="right">Current Users</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {isLoadingLiveCrm ? (
-                    <TableRow>
-                      <TableCell colSpan={3}>
-                        <Stack direction="row" spacing={1.2} alignItems="center" sx={{ py: 0.5 }}>
-                          <CircularProgress size={18} />
-                          <Typography variant="body2" color="text.secondary">
-                            Loading live workspace activity...
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                  {!isLoadingLiveCrm && liveCrmError ? (
-                    <TableRow>
-                      <TableCell colSpan={3}>
-                        <Typography variant="body2" color="error.main">
-                          {liveCrmError}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                  {!isLoadingLiveCrm && !liveCrmError && liveCrmRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3}>
-                        <Typography variant="body2" color="text.secondary">
-                          No active CRM workspaces yet. Your team could be the first one listed.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                  {!isLoadingLiveCrm && !liveCrmError
-                    ? liveCrmRows.map((row) => (
+            {isLoadingLiveCrm ? (
+              <Stack direction="row" spacing={1.2} alignItems="center" sx={{ p: 2 }}>
+                <CircularProgress size={18} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading live workspace activity...
+                </Typography>
+              </Stack>
+            ) : null}
+            {!isLoadingLiveCrm && liveCrmError ? (
+              <Box sx={{ p: 2 }}>
+                <Typography variant="body2" color="error.main">{liveCrmError}</Typography>
+              </Box>
+            ) : null}
+            {!isLoadingLiveCrm && !liveCrmError && liveCrmRows.length === 0 ? (
+              <Box sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No active CRM workspaces yet. Your team could be the first one listed.
+                </Typography>
+              </Box>
+            ) : null}
+            {!isLoadingLiveCrm && !liveCrmError && liveCrmRows.length > 0 ? (
+              isMobile ? (
+                <Stack divider={<Divider />}>
+                  {liveCrmRows.map((row) => (
+                    <Box key={`${row.workspaceName}-${row.workspaceUrl}`} sx={{ p: 2 }}>
+                      <Typography fontWeight={700}>{row.workspaceName}</Typography>
+                      <MuiLink href={row.workspaceUrl} target="_blank" rel="noreferrer" underline="hover" variant="body2" display="block" noWrap>
+                        {row.workspaceUrl}
+                      </MuiLink>
+                      <Typography variant="caption" color="text.secondary">{row.currentUsers} active users</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <TableContainer>
+                  <Table size="small" aria-label="Live CRM workspaces">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>CRM Workspace</TableCell>
+                        <TableCell>Live URL</TableCell>
+                        <TableCell align="right">Current Users</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {liveCrmRows.map((row) => (
                         <TableRow key={`${row.workspaceName}-${row.workspaceUrl}`} hover>
                           <TableCell sx={{ fontWeight: 700 }}>{row.workspaceName}</TableCell>
                           <TableCell>
@@ -347,11 +354,12 @@ function HomePage() {
                           </TableCell>
                           <TableCell align="right">{row.currentUsers}</TableCell>
                         </TableRow>
-                      ))
-                    : null}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )
+            ) : null}
           </Card>
         </Box>
 
