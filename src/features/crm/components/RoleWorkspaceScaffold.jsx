@@ -47,7 +47,14 @@ function RoleWorkspaceScaffold({ title, subtitle, tabs, quickActions, kpiCards, 
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)} sx={{ borderBottom: "1px solid #ead8c4" }}>
+      <Tabs
+        value={activeTab}
+        onChange={(_, value) => setActiveTab(value)}
+        sx={{ borderBottom: "1px solid #ead8c4" }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+      >
         {safeTabs.map((label) => (
           <Tab key={label} label={label} />
         ))}

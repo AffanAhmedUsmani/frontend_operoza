@@ -18,10 +18,7 @@ async function createCampaign(accessToken, payload) {
   return apiRequest("/api/crm/campaigns", {
     method: "POST",
     headers: authHeaders(accessToken),
-    body: JSON.stringify({
-      name: payload.name,
-      schema_json: payload.schemaJson,
-    }),
+    body: JSON.stringify(payload),
   });
 }
 

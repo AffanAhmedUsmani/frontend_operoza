@@ -81,7 +81,7 @@ function CampaignCreatePanel({ accessToken, onBack, onCreated }) {
 
     setSubmitting(true);
     try {
-      await createCampaign(accessToken, { name: name.trim(), schemaJson });
+      await createCampaign(accessToken, { name: name.trim(), schema_json: schemaJson });
       onCreated();
     } catch (err) {
       setErrorMessage(err.message || "Unable to create campaign.");
