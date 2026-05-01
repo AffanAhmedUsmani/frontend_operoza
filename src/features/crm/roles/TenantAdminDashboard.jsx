@@ -17,6 +17,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   Chip,
@@ -42,9 +44,12 @@ import {
   toggleTenantRole,
   updateTenantUser,
 } from "../services/adminService";
+import CampaignsPanel from "../components/CampaignsPanel";
 
 function TenantAdminDashboard({ session, activeNavLabel }) {
   const accessToken = session?.accessToken;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [activeTab, setActiveTab] = useState(0);
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
@@ -379,40 +384,73 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                   </Button>
                 </Grid>
               </Grid>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Photo</TableCell>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Phone</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Roles</TableCell>
-                      <TableCell align="center">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.user_id} hover>
-                        <TableCell><Avatar src={user.photo_url || undefined} sx={{ width: 32, height: 32 }}>{!user.photo_url ? (user.display_name?.[0] || "?") : null}</Avatar></TableCell>
-                        <TableCell>{user.display_name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{user.phone_number || "—"}</TableCell>
-                        <TableCell><Chip label={user.status} color={user.status === "active" ? "success" : user.status === "suspended" ? "error" : "default"} size="small" /></TableCell>
-                        <TableCell>{user.roles.length > 0 ? user.roles.map((r) => r.display_name).join(", ") : <Typography variant="caption" color="text.secondary">No role</Typography>}</TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" justifyContent="center" spacing={0.5}>
+              {isMobile ? (
+                /* Mobile: card list */
+                <Stack spacing={1.5} sx={{ mt: 1 }}>
+                  {filteredUsers.map((user) => (
+                    <Card key={user.user_id} variant="outlined" sx={{ borderColor: "#e8d8c8" }}>
+                      <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <Avatar src={user.photo_url || undefined} sx={{ width: 40, height: 40 }}>
+                            {!user.photo_url ? (user.display_name?.[0] || "?") : null}
+                          </Avatar>
+                          <Stack flex={1} minWidth={0}>
+                            <Typography fontWeight={600} noWrap>{user.display_name}</Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>{user.email}</Typography>
+                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                              <Chip label={user.status} color={user.status === "active" ? "success" : user.status === "suspended" ? "error" : "default"} size="small" />
+                              {user.roles.slice(0, 2).map((r) => (
+                                <Chip key={r.role_code} label={r.display_name} size="small" variant="outlined" />
+                              ))}
+                            </Stack>
+                          </Stack>
+                          <Stack direction="row" spacing={0.5} flexShrink={0}>
                             <Tooltip title="View"><IconButton size="small" onClick={() => setViewUser(user)}><MdVisibility /></IconButton></Tooltip>
                             <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={() => openEdit(user)}><MdEdit /></IconButton></Tooltip>
                             <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { setDeleteUser(user); setDeleteConfirm(""); }}><MdDelete /></IconButton></Tooltip>
                           </Stack>
-                        </TableCell>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              ) : (
+                /* Desktop: table */
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Photo</TableCell>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Email</TableCell>
+                        <TableCell>Phone</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Roles</TableCell>
+                        <TableCell align="center">Actions</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.user_id} hover>
+                          <TableCell><Avatar src={user.photo_url || undefined} sx={{ width: 32, height: 32 }}>{!user.photo_url ? (user.display_name?.[0] || "?") : null}</Avatar></TableCell>
+                          <TableCell>{user.display_name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.phone_number || "—"}</TableCell>
+                          <TableCell><Chip label={user.status} color={user.status === "active" ? "success" : user.status === "suspended" ? "error" : "default"} size="small" /></TableCell>
+                          <TableCell>{user.roles.length > 0 ? user.roles.map((r) => r.display_name).join(", ") : <Typography variant="caption" color="text.secondary">No role</Typography>}</TableCell>
+                          <TableCell align="center">
+                            <Stack direction="row" justifyContent="center" spacing={0.5}>
+                              <Tooltip title="View"><IconButton size="small" onClick={() => setViewUser(user)}><MdVisibility /></IconButton></Tooltip>
+                              <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={() => openEdit(user)}><MdEdit /></IconButton></Tooltip>
+                              <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { setDeleteUser(user); setDeleteConfirm(""); }}><MdDelete /></IconButton></Tooltip>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Stack>
@@ -420,14 +458,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
 
       {/* Campaigns tab */}
       {activeTab === 2 && (
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Campaigns</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Campaign configuration, assignment, and lifecycle management will appear here.
-            </Typography>
-          </CardContent>
-        </Card>
+        <CampaignsPanel accessToken={accessToken} />
       )}
 
       {/* Reports tab */}

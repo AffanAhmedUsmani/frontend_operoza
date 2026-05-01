@@ -220,12 +220,12 @@ function StartJourneyPage() {
                 </Stack>
               ) : null}
 
-              <Stack direction="row" justifyContent="space-between" spacing={2}>
-                <Button variant="outlined" disabled={activeStep === 0} onClick={prevStep}>
+              <Stack direction={{ xs: "column-reverse", sm: "row" }} justifyContent={{ sm: "space-between" }} spacing={2}>
+                <Button variant="outlined" disabled={activeStep === 0} onClick={prevStep} fullWidth>
                   Back
                 </Button>
                 {activeStep < steps.length - 1 ? (
-                  <Button variant="contained" onClick={nextStep} disabled={!isCurrentStepValid}>
+                  <Button variant="contained" onClick={nextStep} disabled={!isCurrentStepValid} fullWidth>
                     Continue
                   </Button>
                 ) : (
@@ -233,6 +233,7 @@ function StartJourneyPage() {
                     variant="contained"
                     onClick={submit}
                     disabled={(!awaitingVerification && !isCurrentStepValid) || (awaitingVerification && !verificationCode) || isSubmitting}
+                    fullWidth
                   >
                     {awaitingVerification ? "Verify and Create Workspace" : "Create Workspace Link"}
                   </Button>
