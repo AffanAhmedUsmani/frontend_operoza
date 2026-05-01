@@ -42,6 +42,8 @@ import {
   toggleTenantRole,
   updateTenantUser,
 } from "../services/adminService";
+import CampaignCreatePanel from "../components/CampaignCreatePanel";
+import CampaignListPanel from "../components/CampaignListPanel";
 
 function TenantAdminDashboard({ session, activeNavLabel }) {
   const accessToken = session?.accessToken;
@@ -70,6 +72,9 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
     status: "all",
     roleCode: "all",
   });
+
+  // campaign sub-view: 'list' | 'create'
+  const [campaignView, setCampaignView] = useState("list");
 
   // view / edit / delete dialog state
   const [viewUser, setViewUser] = useState(null);
@@ -143,6 +148,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
     };
     if (activeNavLabel && adminTabIndexByLabel[activeNavLabel] !== undefined) {
       setActiveTab(adminTabIndexByLabel[activeNavLabel]);
+      setCampaignView("list");
     }
   }, [activeNavLabel]);
 
@@ -420,14 +426,18 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
 
       {/* Campaigns tab */}
       {activeTab === 2 && (
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Campaigns</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Campaign configuration, assignment, and lifecycle management will appear here.
-            </Typography>
-          </CardContent>
-        </Card>
+        campaignView === "create" ? (
+          <CampaignCreatePanel
+            accessToken={accessToken}
+            onBack={() => setCampaignView("list")}
+            onCreated={() => setCampaignView("list")}
+          />
+        ) : (
+          <CampaignListPanel
+            accessToken={accessToken}
+            onCreateClick={() => setCampaignView("create")}
+          />
+        )
       )}
 
       {/* Reports tab */}
