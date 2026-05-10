@@ -45,6 +45,10 @@ import {
   updateTenantUser,
 } from "../services/adminService";
 import CampaignsPanel from "../components/CampaignsPanel";
+import AttendancePanel from "../components/AttendancePanel";
+import SalesPanel from "../components/SalesPanel";
+import DashboardsPanel from "../components/dashboard/DashboardsPanel";
+import { useCampaigns } from "../hooks/useCampaigns";
 
 function TenantAdminDashboard({ session, activeNavLabel }) {
   const accessToken = session?.accessToken;
@@ -60,7 +64,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
     displayName: "",
     email: "",
     password: "Test@1234",
-    roleCode: "outbound_agent",
+    roleCode: "agent",
     phoneNumber: "",
     photo: null,
   });
@@ -68,7 +72,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [assignForm, setAssignForm] = useState({
     targetUserId: "",
-    roleCode: "outbound_agent",
+    roleCode: "agent",
   });
   const [tableFilters, setTableFilters] = useState({
     query: "",
@@ -143,8 +147,11 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
       "Dashboard": 0,
       "Users & Roles": 1,
       "Campaigns": 2,
-      "Reports": 3,
-      "Settings": 4,
+      "Sales": 3,
+      "Attendance": 4,
+      "Reports": 5,
+      "Dashboards": 6,
+      "Settings": 7,
     };
     if (activeNavLabel && adminTabIndexByLabel[activeNavLabel] !== undefined) {
       setActiveTab(adminTabIndexByLabel[activeNavLabel]);
@@ -228,6 +235,13 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
       setErrorMessage(err.message || "Unable to delete user.");
     }
   };
+
+  // Thin wrapper so DashboardsPanel can load its own campaigns
+  function DashboardsPanelWrapper({ accessToken: token, role }) {
+    const { campaigns } = useCampaigns(token);
+    return <DashboardsPanel accessToken={token} role={role} campaigns={campaigns} />;
+  }
+
   return (
     <Stack spacing={3}>
       {/* Dashboard tab */}
@@ -463,6 +477,16 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
 
       {/* Reports tab */}
       {activeTab === 3 && (
+        <SalesPanel accessToken={accessToken} />
+      )}
+
+      {/* Attendance tab */}
+      {activeTab === 4 && (
+        <AttendancePanel accessToken={accessToken} users={users} />
+      )}
+
+      {/* Reports tab */}
+      {activeTab === 5 && (
         <Card sx={{ border: "1px solid #ead8c4" }}>
           <CardContent>
             <Typography variant="h6">Reports</Typography>
@@ -473,8 +497,13 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
         </Card>
       )}
 
+      {/* Dashboards tab */}
+      {activeTab === 6 && (
+        <DashboardsPanelWrapper accessToken={accessToken} role="admin" />
+      )}
+
       {/* Settings tab */}
-      {activeTab === 4 && (
+      {activeTab === 7 && (
         <Card sx={{ border: "1px solid #ead8c4" }}>
           <CardContent>
             <Typography variant="h6">Settings</Typography>

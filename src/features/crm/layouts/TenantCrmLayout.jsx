@@ -20,51 +20,56 @@ import {
   MdBarChart,
   MdCampaign,
   MdDashboard,
+  MdMonetizationOn,
   MdEventNote,
-  MdGavel,
   MdGroup,
-  MdHeadset,
   MdManageAccounts,
   MdMenu,
-  MdOutlineAttachMoney,
   MdPeople,
-  MdPhoneInTalk,
   MdSettings,
-  MdStar,
   MdTimeline,
 } from "react-icons/md";
+import { normalizeRole } from "../components/sales/salesFormUtils";
 
 const DRAWER_WIDTH = 220;
 
 function getNavItems(role) {
-  const dashboard = { label: "Dashboard", icon: <MdDashboard /> };
-  const settings = { label: "Settings", icon: <MdSettings /> };
+  const dashboard  = { label: "Dashboard",    icon: <MdDashboard /> };
+  const settings   = { label: "Settings",     icon: <MdSettings /> };
+  const campaigns  = { label: "Campaigns",    icon: <MdCampaign /> };
+  const sales      = { label: "Sales",        icon: <MdMonetizationOn /> };
+  const attendance = { label: "Attendance",   icon: <MdEventNote /> };
+  const dashboards = { label: "Dashboards",   icon: <MdDashboard /> };
+  const reports    = { label: "Reports",      icon: <MdBarChart /> };
+  const usersRoles = { label: "Users & Roles",icon: <MdManageAccounts /> };
 
   const NAV_MAP = {
-    super_admin: [dashboard, { label: "Users & Roles", icon: <MdManageAccounts /> }, { label: "Campaigns", icon: <MdCampaign /> }, { label: "Reports", icon: <MdBarChart /> }, settings],
-    admin: [dashboard, { label: "Users & Roles", icon: <MdManageAccounts /> }, { label: "Campaigns", icon: <MdCampaign /> }, { label: "Reports", icon: <MdBarChart /> }, settings],
-    hr_manager: [dashboard, { label: "Attendance", icon: <MdEventNote /> }, { label: "Timesheets", icon: <MdTimeline /> }, settings],
-    qa_manager: [dashboard, { label: "Call Review", icon: <MdHeadset /> }, { label: "Scorecards", icon: <MdStar /> }, settings],
-    finance_manager: [dashboard, { label: "Commission", icon: <MdOutlineAttachMoney /> }, { label: "Payouts", icon: <MdOutlineAttachMoney /> }, settings],
-    team_lead: [dashboard, { label: "My Team", icon: <MdGroup /> }, { label: "Pipeline", icon: <MdTimeline /> }, settings],
-    manager: [dashboard, { label: "My Team", icon: <MdGroup /> }, { label: "Pipeline", icon: <MdTimeline /> }, settings],
-    closer: [dashboard, { label: "My Leads", icon: <MdPeople /> }, settings],
-    licensed_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, { label: "Compliance", icon: <MdGavel /> }, settings],
-    retention_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, settings],
-    inbound_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, { label: "Call Log", icon: <MdPhoneInTalk /> }, settings],
-    outbound_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, { label: "Call Log", icon: <MdPhoneInTalk /> }, settings],
-    agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, settings],
-    report_viewer: [dashboard, { label: "Reports", icon: <MdBarChart /> }, settings],
-    client_viewer: [dashboard, { label: "Campaigns", icon: <MdCampaign /> }, settings],
+    admin: [dashboard, usersRoles, campaigns, sales, attendance, reports, dashboards, settings],
+    hr_manager: [
+      dashboard,
+      attendance,
+      { label: "Timesheets", icon: <MdTimeline /> },
+      settings,
+    ],
+    team_lead: [
+      dashboard,
+      campaigns,
+      sales,
+      { label: "My Team", icon: <MdGroup /> },
+      dashboards,
+      settings,
+    ],
+    agent: [attendance, campaigns, sales],
+    client: [dashboard, campaigns, reports, dashboards, settings],
   };
 
-  return NAV_MAP[role] || [dashboard, settings];
+  return NAV_MAP[role] ?? [dashboard, settings];
 }
 
 function TenantCrmLayout({ tenantName, roleLabel, role, onLogout, children }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const navItems = useMemo(() => getNavItems(role || roleLabel), [role, roleLabel]);
+  const navItems = useMemo(() => getNavItems(normalizeRole(role || roleLabel)), [role, roleLabel]);
   const [activeNavLabel, setActiveNavLabel] = useState(navItems[0]?.label || "Dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
 

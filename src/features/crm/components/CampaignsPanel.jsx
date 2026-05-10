@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -13,7 +13,6 @@ import {
   DialogTitle,
   Divider,
   FormControlLabel,
-  Grid,
   IconButton,
   MenuItem,
   Stack,
@@ -33,148 +32,26 @@ import {
   MdVisibilityOff,
 } from "react-icons/md";
 
-import { createCampaign, fetchCampaigns } from "../services/campaignService";
-
-const FIELD_TYPES = [
-  { value: "text", label: "Text" },
-  { value: "number", label: "Number" },
-  { value: "date", label: "Date" },
-  { value: "select", label: "Select (dropdown)" },
-  { value: "textarea", label: "Textarea" },
-];
-
-function slugify(label) {
-  return label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
-}
-
-function makeUniqueKey(baseKey, existingKeys) {
-  if (!existingKeys.includes(baseKey)) return baseKey;
-  let counter = 2;
-  while (existingKeys.includes(`${baseKey}_${counter}`)) counter++;
-  return `${baseKey}_${counter}`;
-}
-
-const EMPTY_FIELD = {
-  label: "",
-  key: "",
-  type: "text",
-  required: false,
-  options: "",
-};
-
-// ------------------------------------------------------------------
-// FieldEditorDialog — add or edit a single field
-// ------------------------------------------------------------------
-function FieldEditorDialog({ open, initial, existingKeys, onSave, onClose }) {
-  const [field, setField] = useState(initial || { ...EMPTY_FIELD });
-  const [keyTouched, setKeyTouched] = useState(false);
-  const [errors, setErrors] = useState({});
-
-  useEffect(() => {
-    setField(initial || { ...EMPTY_FIELD });
-    setKeyTouched(false);
-    setErrors({});
-  }, [open, initial]);
-
-  const handleLabelChange = (value) => {
-    const newKey = slugify(value);
-    setField((prev) => ({
-      ...prev,
-      label: value,
-      key: keyTouched ? prev.key : newKey,
-    }));
-  };
-
-  const handleKeyChange = (value) => {
-    setKeyTouched(true);
-    setField((prev) => ({ ...prev, key: slugify(value) || value }));
-  };
-
-  const validate = () => {
-    const errs = {};
-    if (!field.label.trim()) errs.label = "Label is required";
-    if (!field.key.trim()) errs.key = "Key is required";
-    if (existingKeys.includes(field.key)) errs.key = "Key must be unique";
-    if (field.type === "select" && !field.options.trim()) {
-      errs.options = "Provide at least one option";
-    }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleSave = () => {
-    if (!validate()) return;
-    onSave({ ...field, options: field.options });
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{initial ? "Edit Field" : "Add Field"}</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          <TextField
-            label="Field label"
-            fullWidth
-            value={field.label}
-            onChange={(e) => handleLabelChange(e.target.value)}
-            error={!!errors.label}
-            helperText={errors.label}
-          />
-          <TextField
-            label="Field key (auto-generated)"
-            fullWidth
-            value={field.key}
-            onChange={(e) => handleKeyChange(e.target.value)}
-            error={!!errors.key}
-            helperText={errors.key || "Unique identifier used in the schema"}
-          />
-          <TextField
-            label="Field type"
-            select
-            fullWidth
-            value={field.type}
-            onChange={(e) => setField((prev) => ({ ...prev, type: e.target.value }))}
-          >
-            {FIELD_TYPES.map((ft) => (
-              <MenuItem key={ft.value} value={ft.value}>{ft.label}</MenuItem>
-            ))}
-          </TextField>
-          {field.type === "select" && (
-            <TextField
-              label="Options (comma-separated)"
-              fullWidth
-              value={field.options}
-              onChange={(e) => setField((prev) => ({ ...prev, options: e.target.value }))}
-              placeholder="Option A, Option B, Option C"
-              helperText={errors.options || "Enter choices separated by commas"}
-              error={!!errors.options}
-            />
-          )}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={field.required}
-                onChange={(e) => setField((prev) => ({ ...prev, required: e.target.checked }))}
-                color="warning"
-              />
-            }
-            label="Required field"
-          />
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave}>
-          {initial ? "Save Changes" : "Add Field"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
+import {
+  createCampaign,
+  fetchCampaignTemplateDetail,
+  fetchCampaignTemplates,
+  importCampaignSheet,
+} from "../services/campaignService";
+import { useCampaigns } from "../hooks/useCampaigns";
+import CampaignCard from "./campaigns/CampaignCard";
+import CampaignExportModal from "./campaigns/CampaignExportModal";
+import CampaignFieldsModal from "./campaigns/CampaignFieldsModal";
+import CampaignSettingsModal from "./campaigns/CampaignSettingsModal";
+import DeleteCampaignDialog from "./campaigns/DeleteCampaignDialog";
+import TeamMembersModal from "./campaigns/TeamMembersModal";
+import FieldEditorDialog, {
+  EMPTY_FIELD,
+  FIELD_TYPES,
+  makeUniqueKey,
+  slugify,
+} from "./campaigns/FieldEditorDialog";
+import { normalizeRole, resolveActorContext } from "./sales/salesFormUtils";
 
 // ------------------------------------------------------------------
 // PreviewForm — renders the form based on schema
@@ -231,17 +108,125 @@ function PreviewForm({ fields }) {
 }
 
 // ------------------------------------------------------------------
+// Template field-type helpers (pure functions — defined at module level)
+// ------------------------------------------------------------------
+function mapTemplateFieldType(templateType) {
+  const value = String(templateType || "").trim().toLowerCase();
+  if (["number", "integer", "decimal", "currency", "amount"].includes(value)) return "number";
+  if (["date", "datetime", "timestamp"].includes(value)) return "date";
+  if (["select", "radio", "dropdown", "multiselect"].includes(value)) return "select";
+  if (["textarea", "long_text", "notes"].includes(value)) return "textarea";
+  if (["audio", "recording", "call_recording"].includes(value)) return "audio";
+  return "text";
+}
+
+function convertTemplateToBuilderFields(template) {
+  const groups = Array.isArray(template?.groups) ? template.groups : [];
+  const out = [];
+  const usedKeys = new Set();
+
+  for (const group of groups) {
+    for (const field of (Array.isArray(group?.fields) ? group.fields : [])) {
+      if (!field || typeof field !== "object") continue;
+      const label = String(field.label || field.field_code || "").trim();
+      const rawKey = String(field.field_code || slugify(label) || "").trim();
+      if (!label || !rawKey) continue;
+
+      let key = rawKey;
+      let idx = 2;
+      while (usedKeys.has(key)) { key = `${rawKey}_${idx}`; idx += 1; }
+      usedKeys.add(key);
+
+      out.push({
+        ...EMPTY_FIELD,
+        label,
+        key,
+        type: mapTemplateFieldType(field.type),
+        required: Boolean(field.required),
+        options: Array.isArray(field.options) ? field.options.join(", ") : "",
+      });
+    }
+  }
+
+  return out;
+}
+
+// ------------------------------------------------------------------
 // CampaignBuilder — create a new campaign with dynamic schema
 // ------------------------------------------------------------------
 function CampaignBuilder({ accessToken, onCreated, onCancel }) {
   const [campaignName, setCampaignName] = useState("");
   const [fields, setFields] = useState([]);
+  const [templateOptions, setTemplateOptions] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateCode, setSelectedTemplateCode] = useState("");
+  const [selectedTemplateSummary, setSelectedTemplateSummary] = useState(null);
+  const [templateError, setTemplateError] = useState("");
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setTemplatesLoading(true);
+    setTemplateError("");
+
+    fetchCampaignTemplates(accessToken)
+      .then((items) => {
+        if (!active) return;
+        setTemplateOptions(items);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setTemplateError(err.message || "Unable to load templates.");
+      })
+      .finally(() => {
+        if (!active) return;
+        setTemplatesLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [accessToken]);
+
+  const handleApplyTemplate = async () => {
+    if (!selectedTemplateCode) {
+      setTemplateError("Select a template first.");
+      return;
+    }
+
+    setTemplateError("");
+    setApplyingTemplate(true);
+    try {
+      const template = await fetchCampaignTemplateDetail(accessToken, selectedTemplateCode);
+      if (!template) {
+        setTemplateError("Template not found.");
+        return;
+      }
+
+      const mappedFields = convertTemplateToBuilderFields(template);
+      if (mappedFields.length === 0) {
+        setTemplateError("Selected template has no usable fields.");
+        return;
+      }
+
+      setFields(mappedFields);
+      setSubmitError("");
+      setSubmitSuccess(`Loaded template: ${template.display_name}`);
+      if (!campaignName.trim()) {
+        setCampaignName(template.display_name || "");
+      }
+    } catch (err) {
+      setTemplateError(err.message || "Unable to apply template.");
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
 
   const handleAddField = () => {
     setEditingIndex(null);
@@ -254,6 +239,13 @@ function CampaignBuilder({ accessToken, onCreated, onCancel }) {
   };
 
   const handleSaveField = (fieldData) => {
+    const audioCountExcludingEdit = fields.filter((f, i) => i !== editingIndex && f.type === "audio").length;
+    if (fieldData.type === "audio" && audioCountExcludingEdit >= 2) {
+      setSubmitError("Only 2 audio fields are allowed per campaign.");
+      setEditorOpen(false);
+      return;
+    }
+
     if (editingIndex !== null) {
       setFields((prev) =>
         prev.map((f, i) => (i === editingIndex ? fieldData : f))
@@ -303,12 +295,24 @@ function CampaignBuilder({ accessToken, onCreated, onCancel }) {
 
     setIsSubmitting(true);
     try {
-      const schemaJson = fields.map(({ label, key, type, required, options }) => {
+      const schemaJson = fields.map(({ label, key, type, required, options, analysis_profile, max_size_mb, accepted_extensions }) => {
         const entry = { key, label, type, required };
         if (type === "select") {
           entry.options = options
             ? options.split(",").map((o) => o.trim()).filter(Boolean)
             : [];
+        }
+        if (type === "audio") {
+          entry.max_size_mb = max_size_mb || 30;
+          entry.accepted_extensions = Array.isArray(accepted_extensions)
+            ? accepted_extensions
+            : [".m4a", ".mp3", ".wav"];
+          entry.analysis_profile = analysis_profile || {
+            industry: "insurance",
+            analysis_type: ["sentiment", "compliance", "summary"],
+            checks: [],
+            custom_questions: [],
+          };
         }
         return entry;
       });
@@ -349,6 +353,55 @@ function CampaignBuilder({ accessToken, onCreated, onCancel }) {
 
       {submitError ? <Alert severity="error">{submitError}</Alert> : null}
       {submitSuccess ? <Alert severity="success">{submitSuccess}</Alert> : null}
+      {templateError ? <Alert severity="warning">{templateError}</Alert> : null}
+
+      <Card sx={{ border: "1px solid #ead8c4" }}>
+        <CardContent>
+          <Stack spacing={1.5}>
+            <Typography variant="subtitle1" fontWeight={600}>
+              Start From Template
+            </Typography>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+              <TextField
+                label="Campaign template"
+                select
+                fullWidth
+                size="small"
+                value={selectedTemplateCode}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  setSelectedTemplateCode(code);
+                  const summary = templateOptions.find((item) => item.template_code === code) || null;
+                  setSelectedTemplateSummary(summary);
+                }}
+                disabled={templatesLoading || applyingTemplate}
+                helperText={templatesLoading ? "Loading templates..." : "Choose a predefined industry template."}
+              >
+                <MenuItem value="">None (custom schema)</MenuItem>
+                {templateOptions.map((item) => (
+                  <MenuItem key={item.template_code} value={item.template_code}>
+                    {item.display_name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Button
+                variant="outlined"
+                onClick={handleApplyTemplate}
+                disabled={!selectedTemplateCode || templatesLoading || applyingTemplate}
+                sx={{ borderColor: "#c87941", color: "#7c3f17", minWidth: 180 }}
+              >
+                {applyingTemplate ? "Applying..." : "Apply Template"}
+              </Button>
+            </Stack>
+
+            {selectedTemplateSummary ? (
+              <Typography variant="body2" color="text.secondary">
+                {selectedTemplateSummary.description}
+              </Typography>
+            ) : null}
+          </Stack>
+        </CardContent>
+      </Card>
 
       <TextField
         label="Campaign name"
@@ -477,6 +530,8 @@ function CampaignBuilder({ accessToken, onCreated, onCancel }) {
         open={editorOpen}
         initial={editingField}
         existingKeys={existingKeysForEditor}
+        audioFieldCount={fields.filter((f, i) => i !== editingIndex && f.type === "audio").length}
+        audioLimit={2}
         onSave={handleSaveField}
         onClose={() => setEditorOpen(false)}
       />
@@ -487,67 +542,114 @@ function CampaignBuilder({ accessToken, onCreated, onCancel }) {
 // ------------------------------------------------------------------
 // ImportDialog — CSV/Excel coming soon placeholder
 // ------------------------------------------------------------------
-function ImportDialog({ open, onClose }) {
+function ImportDialog({ open, onClose, accessToken, onImported }) {
+  const [campaignName, setCampaignName] = useState("");
+  const [statusCode, setStatusCode] = useState("draft");
+  const [file, setFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setCampaignName("");
+      setStatusCode("draft");
+      setFile(null);
+      setIsSubmitting(false);
+      setError("");
+    }
+  }, [open]);
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!file) {
+      setError("Please select a CSV or XLSX file.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await importCampaignSheet(accessToken, { file, campaignName, statusCode });
+      onImported();
+      onClose();
+    } catch (err) {
+      setError(err.message || "Import failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Import from CSV / Excel</DialogTitle>
       <DialogContent dividers>
-        <Stack spacing={2} alignItems="center" sx={{ py: 2 }}>
-          <MdFileUpload size={48} color="#c87941" />
-          <Typography variant="h6" textAlign="center">
-            Coming Soon
-          </Typography>
-          <Typography color="text.secondary" textAlign="center">
-            CSV and Excel import support is being built. Once the backend endpoint is
-            ready, you will be able to upload a spreadsheet here and automatically
-            generate a campaign schema from its column headers.
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {error ? <Alert severity="error">{error}</Alert> : null}
+          <TextField
+            label="Campaign name (optional)"
+            fullWidth
+            value={campaignName}
+            onChange={(e) => setCampaignName(e.target.value)}
+            helperText="If blank, filename will be used"
+          />
+          <TextField
+            label="Status"
+            select
+            fullWidth
+            value={statusCode}
+            onChange={(e) => setStatusCode(e.target.value)}
+          >
+            <MenuItem value="draft">Draft</MenuItem>
+            <MenuItem value="running">Running</MenuItem>
+            <MenuItem value="paused">Paused</MenuItem>
+          </TextField>
+          <Button variant="outlined" component="label" startIcon={<MdFileUpload />}>
+            {file ? file.name : "Choose CSV / XLSX file"}
+            <input
+              type="file"
+              hidden
+              accept=".csv,.xlsx,.xlsm,.xltx,.xltm"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+          </Button>
+          <Typography variant="body2" color="text.secondary">
+            The first row is used as field headers to build campaign schema automatically.
           </Typography>
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} disabled={isSubmitting}>Cancel</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={isSubmitting}>
+          {isSubmitting ? "Importing..." : "Import"}
+        </Button>
       </DialogActions>
     </Dialog>
   );
 }
 
 // ------------------------------------------------------------------
-// CampaignsPanel — list + create entry point
+// ------------------------------------------------------------------
+// CampaignsPanel — orchestrator (create + list with modular sub-components)
 // ------------------------------------------------------------------
 function CampaignsPanel({ accessToken }) {
   const [view, setView] = useState("list"); // "list" | "create"
-  const [campaigns, setCampaigns] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const hasFetched = useRef(false);
+  const [teamTarget, setTeamTarget] = useState(null);
+  const [fieldsTarget, setFieldsTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [settingsTarget, setSettingsTarget] = useState(null);
+  const [exportTarget, setExportTarget] = useState(null);
 
-  const loadCampaigns = async () => {
-    setIsLoading(true);
-    setLoadError("");
-    try {
-      const items = await fetchCampaigns(accessToken);
-      setCampaigns(items);
-    } catch (err) {
-      setLoadError(err.message || "Unable to load campaigns.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const userRole = resolveActorContext(accessToken).role;
+  const canManageCampaigns = ["admin", "team_lead"].includes(userRole);
 
-  useEffect(() => {
-    if (!hasFetched.current) {
-      hasFetched.current = true;
-      loadCampaigns();
-    }
-  }, [accessToken]);
+  const { campaigns, loading: isLoading, error: loadError, reload: loadCampaigns } = useCampaigns(accessToken);
 
   const handleCreated = () => {
     setView("list");
     loadCampaigns();
   };
 
-  if (view === "create") {
+  if (view === "create" && canManageCampaigns) {
     return (
       <CampaignBuilder
         accessToken={accessToken}
@@ -566,25 +668,27 @@ function CampaignsPanel({ accessToken }) {
         spacing={1}
       >
         <Typography variant="h6">Campaigns</Typography>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<MdFileUpload />}
-            onClick={() => setImportOpen(true)}
-            sx={{ borderColor: "#c87941", color: "#7c3f17" }}
-          >
-            Import from CSV / Excel
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MdAdd />}
-            onClick={() => setView("create")}
-          >
-            New Campaign
-          </Button>
-        </Stack>
+        {canManageCampaigns ? (
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<MdFileUpload />}
+              onClick={() => setImportOpen(true)}
+              sx={{ borderColor: "#c87941", color: "#7c3f17" }}
+            >
+              Import CSV / Excel
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<MdAdd />}
+              onClick={() => setView("create")}
+            >
+              New Campaign
+            </Button>
+          </Stack>
+        ) : null}
       </Stack>
 
       {loadError ? (
@@ -600,64 +704,96 @@ function CampaignsPanel({ accessToken }) {
       ) : null}
 
       {!isLoading && !loadError && campaigns.length === 0 ? (
-        <Box
-          sx={{
-            border: "2px dashed #e0d0c0",
-            borderRadius: 2,
-            p: 4,
-            textAlign: "center",
-          }}
-        >
+        <Box sx={{ border: "2px dashed #e0d0c0", borderRadius: 2, p: 4, textAlign: "center" }}>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            No campaigns yet. Create your first campaign or import from a spreadsheet.
+            {canManageCampaigns
+              ? "No campaigns yet. Create your first campaign or import from a spreadsheet."
+              : "No campaigns are currently assigned to you."}
           </Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="center">
-            <Button variant="contained" startIcon={<MdAdd />} onClick={() => setView("create")}>
-              Create Campaign
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<MdFileUpload />}
-              onClick={() => setImportOpen(true)}
-              sx={{ borderColor: "#c87941", color: "#7c3f17" }}
-            >
-              Import from CSV / Excel
-            </Button>
-          </Stack>
+          {canManageCampaigns ? (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="center">
+              <Button variant="contained" startIcon={<MdAdd />} onClick={() => setView("create")}>
+                Create Campaign
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<MdFileUpload />}
+                onClick={() => setImportOpen(true)}
+                sx={{ borderColor: "#c87941", color: "#7c3f17" }}
+              >
+                Import from CSV / Excel
+              </Button>
+            </Stack>
+          ) : null}
         </Box>
       ) : null}
 
       {!isLoading && campaigns.length > 0 ? (
-        <Grid container spacing={2}>
+        <Stack spacing={2} sx={{ width: "100%", maxWidth: 1280, mx: "auto" }}>
           {campaigns.map((campaign) => (
-            <Grid item xs={12} sm={6} md={4} key={campaign.id || campaign.campaign_id || campaign.name}>
-              <Card sx={{ border: "1px solid #ead8c4", height: "100%" }}>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography variant="h6" noWrap>{campaign.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {Array.isArray(campaign.schema_json) ? campaign.schema_json.length : 0} field
-                      {Array.isArray(campaign.schema_json) && campaign.schema_json.length !== 1 ? "s" : ""}
-                    </Typography>
-                    {Array.isArray(campaign.schema_json) && campaign.schema_json.length > 0 ? (
-                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                        {campaign.schema_json.slice(0, 4).map((f) => (
-                          <Chip key={f.key} label={f.label} size="small" />
-                        ))}
-                        {campaign.schema_json.length > 4 ? (
-                          <Chip label={`+${campaign.schema_json.length - 4} more`} size="small" variant="outlined" />
-                        ) : null}
-                      </Stack>
-                    ) : null}
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
+            <Box key={campaign.campaign_id || campaign.name} sx={{ width: "100%" }}>
+              <CampaignCard
+                campaign={campaign}
+                accessToken={accessToken}
+                userRole={userRole}
+                onViewTeam={(c) => setTeamTarget(c)}
+                onEditFields={(c) => setFieldsTarget(c)}
+                onDeleteCampaign={(c) => setDeleteTarget(c)}
+                onOpenSettings={(c) => setSettingsTarget(c)}
+                onOpenExport={(c) => setExportTarget(c)}
+              />
+            </Box>
           ))}
-        </Grid>
+        </Stack>
       ) : null}
 
-      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      {canManageCampaigns ? (
+        <ImportDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          accessToken={accessToken}
+          onImported={loadCampaigns}
+        />
+      ) : null}
+
+      <TeamMembersModal
+        open={!!teamTarget}
+        campaign={teamTarget}
+        accessToken={accessToken}
+        onSaved={loadCampaigns}
+        onClose={() => setTeamTarget(null)}
+      />
+
+      <DeleteCampaignDialog
+        open={!!deleteTarget}
+        campaign={deleteTarget}
+        accessToken={accessToken}
+        onDeleted={() => { loadCampaigns(); setDeleteTarget(null); }}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <CampaignSettingsModal
+        open={!!settingsTarget}
+        campaign={settingsTarget}
+        accessToken={accessToken}
+        onSaved={loadCampaigns}
+        onClose={() => setSettingsTarget(null)}
+      />
+
+      <CampaignExportModal
+        open={!!exportTarget}
+        campaign={exportTarget}
+        accessToken={accessToken}
+        onClose={() => setExportTarget(null)}
+      />
+
+      <CampaignFieldsModal
+        open={!!fieldsTarget}
+        campaign={fieldsTarget}
+        accessToken={accessToken}
+        onSaved={loadCampaigns}
+        onClose={() => setFieldsTarget(null)}
+      />
     </Stack>
   );
 }
