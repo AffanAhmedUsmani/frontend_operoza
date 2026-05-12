@@ -1,0 +1,203 @@
+import { useCallback, useState } from "react";
+import { Box, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
+import StudioToolbar from "./StudioToolbar";
+import WidgetPalette from "./WidgetPalette";
+import GridCanvas from "./GridCanvas";
+import PropertiesPanel from "./PropertiesPanel";
+
+/**
+ * DashboardStudio — Main orchestrator for drag-drop dashboard builder
+ * 
+ * Implements perfect composition:
+ * - StudioToolbar: save/draft/cancel actions (primacy)
+ * - WidgetPalette: chunked widget catalog (Miller's Law)
+ * - GridCanvas: 3-column grid with drag-drop (center canvas)
+ * - PropertiesPanel: edit selected widget (progressive disclosure)
+ * 
+ * State management: local component state, lifts to parent on save
+ * 
+ * Props:
+ *   dashboardId      — current dashboard UUID
+ *   dashboardName    — current dashboard name
+ *   initialWidgets   — array of existing widgets
+ *   onSave           — async (widgets) => void
+ *   onSaveDraft      — async (widgets, draftState) => void
+ *   onCancel         — () => void
+ */
+function DashboardStudio({
+  dashboardId,
+  dashboardName,
+  initialWidgets = [],
+  onSave,
+  onSaveDraft,
+  onCancel,
+}) {
+  // ── State ────────────────────────────────────────────────────────────────
+  const [widgets, setWidgets] = useState(initialWidgets);
+  const [selectedWidget, setSelectedWidget] = useState(null);
+  const [selectedPaletteType, setSelectedPaletteType] = useState(null);
+  const [isDragSource, setIsDragSource] = useState(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveDraftLoading, setSaveDraftLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [historyStack, setHistoryStack] = useState([initialWidgets]); // For undo
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Track original state to detect changes
+  const originalState = JSON.stringify(initialWidgets);
+  const currentState = JSON.stringify(widgets);
+  const actualHasChanges = originalState !== currentState || hasChanges;
+
+  // ── Undo/Redo ────────────────────────────────────────────────────────────
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setWidgets(historyStack[historyIndex - 1]);
+      setSelectedWidget(null);
+    }
+  }, [historyIndex, historyStack]);
+
+  const canUndo = historyIndex > 0;
+
+  const pushToHistory = (newWidgets) => {
+    // Trim any "future" history if we've branched
+    const newStack = historyStack.slice(0, historyIndex + 1);
+    newStack.push(newWidgets);
+    setHistoryStack(newStack);
+    setHistoryIndex(newStack.length - 1);
+  };
+
+  // ── Widget operations ────────────────────────────────────────────────────
+
+  const handleAddWidget = useCallback(
+    (newWidget) => {
+      const updated = [...widgets, newWidget];
+      setWidgets(updated);
+      pushToHistory(updated);
+      setHasChanges(true);
+      setSelectedWidget(newWidget);
+    },
+    [widgets, historyIndex]
+  );
+
+  const handleUpdateWidget = useCallback(
+    (updated) => {
+      const newWidgets = widgets.map((w) =>
+        w.widget_id === updated.widget_id ? updated : w
+      );
+      setWidgets(newWidgets);
+      pushToHistory(newWidgets);
+      setHasChanges(true);
+      setSelectedWidget(updated);
+    },
+    [widgets, historyIndex]
+  );
+
+  const handleDeleteWidget = useCallback(
+    (widgetId) => {
+      const newWidgets = widgets.filter((w) => w.widget_id !== widgetId);
+      setWidgets(newWidgets);
+      pushToHistory(newWidgets);
+      setHasChanges(true);
+      setSelectedWidget(null);
+    },
+    [widgets, historyIndex]
+  );
+
+  // ── Save operations ─────────────────────────────────────────────────────
+
+  const handleSave = async () => {
+    setSaveLoading(true);
+    try {
+      await onSave(widgets);
+      // Reset history and changes tracking on successful save
+      setHistoryStack([widgets]);
+      setHistoryIndex(0);
+      setHasChanges(false);
+    } catch (err) {
+      console.error("Save failed:", err);
+      // Error handling is upstream
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setSaveDraftLoading(true);
+    try {
+      await onSaveDraft(widgets, { draftAt: new Date().toISOString() });
+      setHasChanges(false);
+    } catch (err) {
+      console.error("Save draft failed:", err);
+    } finally {
+      setSaveDraftLoading(false);
+    }
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  return (
+    <Stack spacing={3}>
+      {/* Top toolbar - primacy (Serial Position Effect) */}
+      <StudioToolbar
+        dashboardName={dashboardName}
+        hasChanges={actualHasChanges}
+        onSave={handleSave}
+        onSaveDraft={handleSaveDraft}
+        onCancel={onCancel}
+        onUndo={handleUndo}
+        canUndo={canUndo}
+      />
+
+      {/* Three-column layout: Palette | Canvas | Properties */}
+      <Box sx={{ display: "flex", gap: 2, minHeight: "60vh" }}>
+        {/* Left: Widget Palette - Miller's Law */}
+        <WidgetPalette
+          onWidgetSelect={(type) => {
+            setSelectedPaletteType(type);
+            // Auto-add on select (optional: user can click button instead)
+          }}
+          selectedType={selectedPaletteType}
+        />
+
+        {/* Center: 3-Column Grid Canvas */}
+        <GridCanvas
+          widgets={widgets}
+          selectedWidget={selectedWidget}
+          onSelectWidget={setSelectedWidget}
+          onEditWidget={(w) => setSelectedWidget(w)}
+          onDeleteWidget={handleDeleteWidget}
+          onUpdateWidget={handleUpdateWidget}
+          onAddWidget={handleAddWidget}
+          isDragSource={isDragSource}
+        />
+
+        {/* Right: Properties Panel - Progressive Disclosure */}
+        <PropertiesPanel
+          widget={selectedWidget}
+          onUpdate={handleUpdateWidget}
+          onClose={() => setSelectedWidget(null)}
+        />
+      </Box>
+
+      {/* Floating hint - recency cue */}
+      <Box
+        sx={{
+          textAlign: "center",
+          p: 1.5,
+          bgcolor: "#f5ece0",
+          borderRadius: 1,
+          border: "1px solid #ead8c4",
+          fontSize: "0.75rem",
+          color: "#999",
+        }}
+      >
+        💡 <strong>Pro tip:</strong> Drag widgets to reorder or from the palette to add.
+        Changes are tracked in history (Undo available).
+      </Box>
+    </Stack>
+  );
+}
+
+export default DashboardStudio;

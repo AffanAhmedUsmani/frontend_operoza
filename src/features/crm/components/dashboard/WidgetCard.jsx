@@ -39,6 +39,13 @@ import {
 } from "recharts";
 import { MdDelete, MdEdit, MdSave, MdClose } from "react-icons/md";
 import { updateSale } from "../../services/salesService";
+import FunnelWidget from "./widgets/FunnelWidget";
+import LeaderboardWidget from "./widgets/LeaderboardWidget";
+import CommissionWidget from "./widgets/CommissionWidget";
+import TargetWidget from "./widgets/TargetWidget";
+import QAScoreWidget from "./widgets/QAScoreWidget";
+import FlaggedCallsWidget from "./widgets/FlaggedCallsWidget";
+import ROIWidget from "./widgets/ROIWidget";
 
 const CHART_COLORS = ["#c05314", "#0f8a7a", "#f58a3c", "#45b8ab", "#8f3a11", "#0b6458"];
 const INLINE_EDIT_ROLES = new Set(["admin", "client"]);
@@ -322,7 +329,14 @@ function WidgetCard({ widget, canEdit = false, onEdit, onDelete, accessToken, ac
         {widget.type === "metric" && <MetricWidget widget={widget} />}
         {widget.type === "table" && <TableWidget widget={widget} accessToken={accessToken} actorRole={actorRole} onRefresh={onRefresh} />}
         {widget.type === "chart" && <ChartWidget widget={widget} />}
-        {! ["metric", "table", "chart"].includes(widget.type) && (
+        {widget.type === "funnel" && <FunnelWidget widget={widget} />}
+        {widget.type === "leaderboard" && <LeaderboardWidget widget={widget} actorUserId={window.__actorUserId} />}
+        {widget.type === "commission" && <CommissionWidget widget={widget} />}
+        {widget.type === "target" && <TargetWidget widget={widget} />}
+        {widget.type === "qa_score" && <QAScoreWidget widget={widget} />}
+        {widget.type === "flagged_calls" && <FlaggedCallsWidget widget={widget} />}
+        {widget.type === "roi" && <ROIWidget widget={widget} />}
+        {! ["metric", "table", "chart", "funnel", "leaderboard", "commission", "target", "qa_score", "flagged_calls", "roi"].includes(widget.type) && (
           <Typography variant="body2" color="text.secondary">Unknown widget type: {widget.type}</Typography>
         )}
       </CardContent>

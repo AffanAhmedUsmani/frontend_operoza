@@ -23,12 +23,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { MdAdd, MdArrowBack, MdAutoAwesome, MdBarChart, MdDashboard, MdEdit } from "react-icons/md";
+import { MdAdd, MdArrowBack, MdAutoAwesome, MdBarChart, MdDashboard, MdEdit, MdManageAccounts } from "react-icons/md";
 import { useDashboards } from "../../hooks/useDashboards";
 import DashboardViewer from "./DashboardViewer";
 import DashboardBuilderPanel from "./DashboardBuilderPanel";
-import { createWidget, fetchDashboardDetail } from "../../services/dashboardService";
+import { createWidget, fetchDashboardDetail, createDashboardFromTemplate } from "../../services/dashboardService";
 import { buildDashboardTemplateWidgets, DASHBOARD_TEMPLATE_PRESETS } from "./dashboardTemplates";
+import TemplateSelector from "./TemplateSelector";
+import DashboardAssignmentsDialog from "./DashboardAssignmentsDialog";
 
 const CAN_BUILD_ROLES = new Set(["admin", "team_lead"]);
 
@@ -68,6 +70,11 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
 
+  // Template selector state
+  const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [templateCreating, setTemplateCreating] = useState(false);
+  const [assignmentsOpen, setAssignmentsOpen] = useState(false);
+
   const handleCreate = async () => {
     setCreating(true);
     setCreateError(null);
@@ -104,6 +111,20 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
     }
   };
 
+  const handleCreateFromTemplate = async (templatePayload) => {
+    setTemplateCreating(true);
+    try {
+      const created = await createDashboardFromTemplate(accessToken, templatePayload);
+      const detail = await fetchDashboardDetail(accessToken, created.dashboard_id);
+      setSelected(detail);
+      // Parent closes the template selector on success
+    } catch (err) {
+      throw err; // Let TemplateSelector handle error display
+    } finally {
+      setTemplateCreating(false);
+    }
+  };
+
   const handleDelete = async (dashboardId) => {
     try {
       await remove(dashboardId);
@@ -120,6 +141,7 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
       selected.campaign_id;
 
     return (
+      <>
       <Stack spacing={2}>
         {/* Breadcrumb */}
         <Stack direction="row" alignItems="center" spacing={1}>
@@ -143,6 +165,16 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
             icon={<MdBarChart style={{ fontSize: 12 }} />}
             sx={{ bgcolor: "#f5ece0", color: "#7c3f17" }}
           />
+          {canBuild && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<MdManageAccounts />}
+              onClick={() => setAssignmentsOpen(true)}
+            >
+              Assignments
+            </Button>
+          )}
         </Stack>
 
         {canBuild ? (
@@ -164,6 +196,14 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
           />
         )}
       </Stack>
+
+      <DashboardAssignmentsDialog
+        accessToken={accessToken}
+        dashboard={selected}
+        open={assignmentsOpen}
+        onClose={() => setAssignmentsOpen(false)}
+      />
+      </>
     );
   }
 
@@ -217,6 +257,18 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
               aria-label="Create new dashboard"
             >
               New Dashboard
+            </Button>
+          )}
+
+          {canBuild && campaignFilter && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<MdAutoAwesome />}
+              onClick={() => setTemplateSelectorOpen(true)}
+              aria-label="Create dashboard from template"
+            >
+              From Template
             </Button>
           )}
         </Stack>
@@ -331,6 +383,17 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
             New Dashboard
           </Button>
         </Box>
+      )}
+
+      {/* Template selector (requires campaign filter) */}
+      {canBuild && (
+        <TemplateSelector
+          open={templateSelectorOpen}
+          onClose={() => setTemplateSelectorOpen(false)}
+          onCreateFromTemplate={handleCreateFromTemplate}
+          campaignId={campaignFilter}
+          loading={templateCreating}
+        />
       )}
 
       {/* Create dashboard dialog */}

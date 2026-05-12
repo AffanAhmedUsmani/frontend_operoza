@@ -24,6 +24,7 @@ function TenantPortalPage() {
 
   return (
     <TenantCrmLayout
+      session={session}
       tenantName={session.tenant.companyName}
       roleLabel={normalizedRole}
       role={normalizedRole}

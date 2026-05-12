@@ -30,59 +30,104 @@ import {
   MdTimeline,
 } from "react-icons/md";
 import { normalizeRole } from "../components/sales/salesFormUtils";
+import { fetchDashboards } from "../services/dashboardService";
 
 const DRAWER_WIDTH = 220;
 
-function getNavItems(role) {
-  const dashboard  = { label: "Dashboard",    icon: <MdDashboard /> };
-  const settings   = { label: "Settings",     icon: <MdSettings /> };
-  const campaigns  = { label: "Campaigns",    icon: <MdCampaign /> };
-  const sales      = { label: "Sales",        icon: <MdMonetizationOn /> };
-  const attendance = { label: "Attendance",   icon: <MdEventNote /> };
-  const dashboards = { label: "Dashboards",   icon: <MdDashboard /> };
-  const reports    = { label: "Reports",      icon: <MdBarChart /> };
-  const usersRoles = { label: "Users & Roles",icon: <MdManageAccounts /> };
+function getNavItems(role, assignedDashboards = []) {
+  const dashboard  = { key: "Dashboard", label: "Dashboard", icon: <MdDashboard /> };
+  const settings   = { key: "Settings", label: "Settings", icon: <MdSettings /> };
+  const campaigns  = { key: "Campaigns", label: "Campaigns", icon: <MdCampaign /> };
+  const sales      = { key: "Sales", label: "Sales", icon: <MdMonetizationOn /> };
+  const attendance = { key: "Attendance", label: "Attendance", icon: <MdEventNote /> };
+  const dashboards = { key: "Dashboards", label: "Dashboards", icon: <MdDashboard /> };
+  const reports    = { key: "Reports", label: "Reports", icon: <MdBarChart /> };
+  const usersRoles = { key: "Users & Roles", label: "Users & Roles", icon: <MdManageAccounts /> };
+  const myTeam     = { key: "My Team", label: "My Team", icon: <MdGroup /> };
+  const timesheets = { key: "Timesheets", label: "Timesheets", icon: <MdTimeline /> };
+
+  const assignedItems = assignedDashboards.map((item) => ({
+    key: `dashboard:${item.dashboard_id}`,
+    label: item.name,
+    icon: <MdDashboard />,
+    kind: "assigned_dashboard",
+    dashboard: item,
+  }));
 
   const NAV_MAP = {
-    admin: [dashboard, usersRoles, campaigns, sales, attendance, reports, dashboards, settings],
+    admin: [usersRoles, campaigns, sales, attendance, reports, dashboards, settings],
     hr_manager: [
-      dashboard,
       attendance,
-      { label: "Timesheets", icon: <MdTimeline /> },
+      timesheets,
+      ...assignedItems,
       settings,
     ],
     team_lead: [
       dashboard,
       campaigns,
       sales,
-      { label: "My Team", icon: <MdGroup /> },
+      myTeam,
       dashboards,
       settings,
     ],
-    agent: [attendance, campaigns, sales],
-    client: [dashboard, campaigns, reports, dashboards, settings],
+    agent: [attendance, campaigns, sales, ...assignedItems],
+    client: [campaigns, reports, ...assignedItems, settings],
   };
 
   return NAV_MAP[role] ?? [dashboard, settings];
 }
 
-function TenantCrmLayout({ tenantName, roleLabel, role, onLogout, children }) {
+function TenantCrmLayout({ tenantName, roleLabel, role, session, onLogout, children }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const navItems = useMemo(() => getNavItems(normalizeRole(role || roleLabel)), [role, roleLabel]);
-  const [activeNavLabel, setActiveNavLabel] = useState(navItems[0]?.label || "Dashboard");
+  const normalizedRole = normalizeRole(role || roleLabel);
+  const [assignedDashboards, setAssignedDashboards] = useState([]);
+  const navItems = useMemo(() => getNavItems(normalizedRole, assignedDashboards), [normalizedRole, assignedDashboards]);
+  const [activeNavItem, setActiveNavItem] = useState(navItems[0] || { key: "Settings", label: "Settings" });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    setActiveNavLabel(navItems[0]?.label || "Dashboard");
+    if (!session?.accessToken || normalizedRole === "admin" || normalizedRole === "team_lead") {
+      setAssignedDashboards([]);
+      return undefined;
+    }
+
+    let alive = true;
+    const loadAssignedDashboards = async () => {
+      try {
+        const items = await fetchDashboards(session.accessToken);
+        if (alive) {
+          setAssignedDashboards(items);
+        }
+      } catch (_) {
+        if (alive) {
+          setAssignedDashboards([]);
+        }
+      }
+    };
+
+    loadAssignedDashboards();
+    const handleAssignmentsChanged = () => loadAssignedDashboards();
+    window.addEventListener("dashboards:assignments-changed", handleAssignmentsChanged);
+    return () => {
+      alive = false;
+      window.removeEventListener("dashboards:assignments-changed", handleAssignmentsChanged);
+    };
+  }, [normalizedRole, session?.accessToken]);
+
+  useEffect(() => {
+    setActiveNavItem((previous) => {
+      const items = navItems.flatMap((item) => [item, ...(item.children || [])]);
+      return items.find((item) => item.key === previous?.key) || navItems[0] || { key: "Settings", label: "Settings" };
+    });
   }, [navItems]);
 
   const content = isValidElement(children)
-    ? cloneElement(children, { activeNavLabel })
+    ? cloneElement(children, { activeNavLabel: activeNavItem?.label, activeNavItem })
     : children;
 
-  const handleNavClick = (label) => {
-    setActiveNavLabel(label);
+  const handleNavClick = (item) => {
+    setActiveNavItem(item.children?.length ? item.children[0] : item);
     if (isMobile) setMobileOpen(false);
   };
 
@@ -99,26 +144,48 @@ function TenantCrmLayout({ tenantName, roleLabel, role, onLogout, children }) {
       {/* Nav items */}
       <List dense sx={{ flex: 1, pt: 1 }}>
         {navItems.map((item) => (
-          <ListItem key={item.label} disablePadding>
-            <ListItemButton
-              selected={activeNavLabel === item.label}
-              onClick={() => handleNavClick(item.label)}
-              sx={{
-                borderRadius: 1,
-                mx: 1,
-                mb: 0.5,
-                color: "#e8c99a",
-                "&.Mui-selected": { background: "#c8794126", color: "#fff" },
-                "&.Mui-selected:hover": { background: "#c8794133", color: "#fff" },
-                "&:hover": { background: "#5a2d0040", color: "#fff" },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 32, color: "inherit", fontSize: 18 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 13 }} />
-            </ListItemButton>
-          </ListItem>
+          <Box key={item.key}>
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={activeNavItem?.key === item.key || (item.children || []).some((child) => child.key === activeNavItem?.key)}
+                onClick={() => handleNavClick(item)}
+                sx={{
+                  borderRadius: 1,
+                  mx: 1,
+                  mb: 0.5,
+                  color: "#e8c99a",
+                  "&.Mui-selected": { background: "#c8794126", color: "#fff" },
+                  "&.Mui-selected:hover": { background: "#c8794133", color: "#fff" },
+                  "&:hover": { background: "#5a2d0040", color: "#fff" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32, color: "inherit", fontSize: 18 }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 13 }} />
+              </ListItemButton>
+            </ListItem>
+            {(item.children || []).map((child) => (
+              <ListItem key={child.key} disablePadding sx={{ pl: 2.5 }}>
+                <ListItemButton
+                  selected={activeNavItem?.key === child.key}
+                  onClick={() => handleNavClick(child)}
+                  sx={{
+                    borderRadius: 1,
+                    mx: 1,
+                    mb: 0.5,
+                    color: "#d9bb90",
+                    minHeight: 36,
+                    "&.Mui-selected": { background: "#c8794126", color: "#fff" },
+                    "&.Mui-selected:hover": { background: "#c8794133", color: "#fff" },
+                    "&:hover": { background: "#5a2d0040", color: "#fff" },
+                  }}
+                >
+                  <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: 12 }} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </Box>
         ))}
       </List>
 
@@ -180,7 +247,7 @@ function TenantCrmLayout({ tenantName, roleLabel, role, onLogout, children }) {
               {tenantName}
             </Typography>
             <Typography variant="caption" color="#c89060" noWrap>
-              {activeNavLabel}
+              {activeNavItem?.label}
             </Typography>
           </Toolbar>
         </AppBar>

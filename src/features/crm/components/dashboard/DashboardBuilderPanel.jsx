@@ -27,6 +27,7 @@ import {
 } from "../../services/dashboardService";
 import DashboardViewer from "./DashboardViewer";
 import WidgetFormDialog from "./WidgetFormDialog";
+import DashboardStudio from "./studio/DashboardStudio";
 
 /**
  * DashboardBuilderPanel
@@ -175,6 +176,7 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
       >
         <Tab label="Live View" id="tab-view" aria-controls="tabpanel-view" />
         <Tab label="Builder" id="tab-builder" aria-controls="tabpanel-builder" />
+        <Tab label="Studio Builder" id="tab-studio" aria-controls="tabpanel-studio" />
       </Tabs>
 
       {/* Live View tab */}
@@ -266,6 +268,47 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
               </Stack>
             )}
           </Stack>
+        </Box>
+      )}
+
+      {/* Studio Builder tab - drag-drop interface */}
+      {tab === 2 && (
+        <Box role="tabpanel" id="tabpanel-studio" aria-labelledby="tab-studio">
+          <DashboardStudio
+            dashboardId={dashboard.dashboard_id}
+            dashboardName={dashboard.name}
+            initialWidgets={widgets}
+            onSave={async (updatedWidgets) => {
+              // Save all widgets to backend
+              for (const widget of updatedWidgets) {
+                if (widget.widget_id.startsWith("temp-")) {
+                  // New widget - create it
+                  await createWidget(accessToken, dashboard.dashboard_id, {
+                    type: widget.type,
+                    title: widget.title,
+                    config_json: widget.config_json,
+                  });
+                } else {
+                  // Existing widget - update it
+                  await updateWidget(accessToken, dashboard.dashboard_id, widget.widget_id, {
+                    type: widget.type,
+                    title: widget.title,
+                    config_json: widget.config_json,
+                  });
+                }
+              }
+              await refreshWidgets();
+            }}
+            onSaveDraft={async (draftWidgets, draftState) => {
+              // Save draft as a local note for now (could extend to backend)
+              localStorage.setItem(
+                `dashboard-draft-${dashboard.dashboard_id}`,
+                JSON.stringify({ widgets: draftWidgets, ...draftState })
+              );
+              alert("Draft saved locally. Changes are not yet published.");
+            }}
+            onCancel={() => setTab(0)}
+          />
         </Box>
       )}
 

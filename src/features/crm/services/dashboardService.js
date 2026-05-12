@@ -25,6 +25,14 @@ export async function createDashboard(accessToken, payload) {
   });
 }
 
+export async function createDashboardFromTemplate(accessToken, payload) {
+  return apiRequest("/api/crm/dashboards/from-template", {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function updateDashboard(accessToken, dashboardId, payload) {
   return apiRequest(`/api/crm/dashboards/${dashboardId}`, {
     method: "PATCH",
@@ -43,6 +51,29 @@ export async function deleteDashboard(accessToken, dashboardId) {
 export async function fetchDashboardDetail(accessToken, dashboardId) {
   return apiRequest(`/api/crm/dashboards/${dashboardId}`, {
     method: "GET",
+    headers: authHeaders(accessToken),
+  });
+}
+
+export async function fetchDashboardAssignments(accessToken, dashboardId) {
+  const data = await apiRequest(`/api/crm/dashboards/${dashboardId}/assignments`, {
+    method: "GET",
+    headers: authHeaders(accessToken),
+  });
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function createDashboardAssignment(accessToken, dashboardId, payload) {
+  return apiRequest(`/api/crm/dashboards/${dashboardId}/assignments`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteDashboardAssignment(accessToken, dashboardId, assignmentId) {
+  return apiRequest(`/api/crm/dashboards/${dashboardId}/assignments/${assignmentId}`, {
+    method: "DELETE",
     headers: authHeaders(accessToken),
   });
 }

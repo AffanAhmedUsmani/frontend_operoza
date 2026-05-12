@@ -1,0 +1,39 @@
+import { Box, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
+import DashboardViewer from "./DashboardViewer";
+
+function AssignedDashboardWorkspace({ session, dashboard, role }) {
+  const accessToken = session?.accessToken;
+
+  if (!dashboard) {
+    return null;
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Card sx={{ border: "1px solid #ead8c4" }}>
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography variant="h5" fontWeight={700}>
+              {dashboard.name}
+            </Typography>
+            <Typography color="text.secondary">
+              Assigned dashboard view. Widgets below reflect the configuration created by your admin or team lead.
+            </Typography>
+            <Box>
+              <Chip size="small" label={`Campaign ${dashboard.campaign_id}`} sx={{ bgcolor: "#f5ece0", color: "#7c3f17" }} />
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <DashboardViewer
+        accessToken={accessToken}
+        dashboard={dashboard}
+        actorRole={role}
+        canEdit={false}
+      />
+    </Stack>
+  );
+}
+
+export default AssignedDashboardWorkspace;

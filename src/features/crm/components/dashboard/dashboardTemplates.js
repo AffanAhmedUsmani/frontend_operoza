@@ -170,3 +170,71 @@ export function buildDashboardTemplateWidgets(presetCode, campaign) {
     baseTable,
   ];
 }
+
+/**
+ * Pre-built backend templates for quick dashboard creation.
+ * Users can create a new dashboard from any of these templates.
+ * Each template is pre-configured with widgets and formulas.
+ */
+export const BACKEND_DASHBOARD_TEMPLATES = [
+  {
+    name: "Sales Manager Dashboard",
+    description: "Overview of team sales performance, pipeline, and individual agent performance",
+    icon: "📊",
+    recommended_for: ["admin", "team_lead", "manager"],
+  },
+  {
+    name: "QA Manager Dashboard",
+    description: "Monitor call quality, compliance scores, and flagged issues requiring attention",
+    icon: "🎯",
+    recommended_for: ["admin", "qa_manager"],
+  },
+  {
+    name: "Finance Dashboard",
+    description: "Track ROI, commission payouts, revenue streams, and profitability metrics",
+    icon: "💰",
+    recommended_for: ["admin", "finance_manager"],
+  },
+  {
+    name: "Agent Dashboard",
+    description: "Personal performance metrics, ranking, calls, and individual targets",
+    icon: "👤",
+    recommended_for: ["agent"],
+  },
+  {
+    name: "Executive Dashboard",
+    description: "High-level business overview with key metrics, ROI, and team performance summaries",
+    icon: "👑",
+    recommended_for: ["admin", "superadmin"],
+  },
+  {
+    name: "Conversion War Room",
+    description: "Campaign conversion bottlenecks, drop-off analysis, and fast action insights",
+    icon: "⚔️",
+    recommended_for: ["admin", "team_lead"],
+  },
+  {
+    name: "Revenue Acceleration Dashboard",
+    description: "Revenue momentum with target tracking and commission pressure points",
+    icon: "🚀",
+    recommended_for: ["admin", "team_lead", "finance_manager"],
+  },
+  {
+    name: "Quality Control Center",
+    description: "Audio quality governance focused on risk calls and compliance health",
+    icon: "🛡️",
+    recommended_for: ["admin", "qa_manager", "team_lead"],
+  },
+  {
+    name: "Agent Performance Sprint",
+    description: "Personal productivity, conversion cadence, and daily execution board",
+    icon: "🏃",
+    recommended_for: ["agent", "team_lead"],
+  },
+  {
+    name: "Portfolio Health Dashboard",
+    description: "Cross-campaign board balancing pipeline, ROI, quality, and targets",
+    icon: "🧭",
+    recommended_for: ["admin", "superadmin", "team_lead"],
+  },
+];
