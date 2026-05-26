@@ -20,64 +20,151 @@ import {
   MdBarChart,
   MdCampaign,
   MdDashboard,
+  MdMonetizationOn,
   MdEventNote,
-  MdGavel,
   MdGroup,
-  MdHeadset,
   MdManageAccounts,
   MdMenu,
-  MdOutlineAttachMoney,
   MdPeople,
-  MdPhoneInTalk,
   MdSettings,
-  MdStar,
   MdTimeline,
 } from "react-icons/md";
+import { normalizeRole } from "../components/sales/salesFormUtils";
+import { fetchDashboards } from "../services/dashboardService";
+import { listReports } from "../services/reportingService";
 
 const DRAWER_WIDTH = 220;
 
-function getNavItems(role) {
-  const dashboard = { label: "Dashboard", icon: <MdDashboard /> };
-  const settings = { label: "Settings", icon: <MdSettings /> };
+function getNavItems(role, assignedDashboards = [], includeReportsForAssignees = false) {
+  const dashboard  = { key: "Dashboard", label: "Dashboard", icon: <MdDashboard /> };
+  const settings   = { key: "Settings", label: "Settings", icon: <MdSettings /> };
+  const campaigns  = { key: "Campaigns", label: "Campaigns", icon: <MdCampaign /> };
+  const sales      = { key: "Sales", label: "Sales", icon: <MdMonetizationOn /> };
+  const attendance = { key: "Attendance", label: "Attendance", icon: <MdEventNote /> };
+  const dashboards = { key: "Dashboards", label: "Dashboards", icon: <MdDashboard /> };
+  const reports    = { key: "Reports", label: "Reports", icon: <MdBarChart /> };
+  const usersRoles = { key: "Users & Roles", label: "Users & Roles", icon: <MdManageAccounts /> };
+  const myTeam     = { key: "My Team", label: "My Team", icon: <MdGroup /> };
+  const timesheets = { key: "Timesheets", label: "Timesheets", icon: <MdTimeline /> };
+
+  const assignedItems = assignedDashboards.map((item) => ({
+    key: `dashboard:${item.dashboard_id}`,
+    label: item.name,
+    icon: <MdDashboard />,
+    kind: "assigned_dashboard",
+    dashboard: item,
+  }));
 
   const NAV_MAP = {
-    super_admin: [dashboard, { label: "Users & Roles", icon: <MdManageAccounts /> }, { label: "Campaigns", icon: <MdCampaign /> }, { label: "Reports", icon: <MdBarChart /> }, settings],
-    admin: [dashboard, { label: "Users & Roles", icon: <MdManageAccounts /> }, { label: "Campaigns", icon: <MdCampaign /> }, { label: "Reports", icon: <MdBarChart /> }, settings],
-    hr_manager: [dashboard, { label: "Attendance", icon: <MdEventNote /> }, { label: "Timesheets", icon: <MdTimeline /> }, settings],
-    qa_manager: [dashboard, { label: "Call Review", icon: <MdHeadset /> }, { label: "Scorecards", icon: <MdStar /> }, settings],
-    finance_manager: [dashboard, { label: "Commission", icon: <MdOutlineAttachMoney /> }, { label: "Payouts", icon: <MdOutlineAttachMoney /> }, settings],
-    team_lead: [dashboard, { label: "My Team", icon: <MdGroup /> }, { label: "Pipeline", icon: <MdTimeline /> }, settings],
-    manager: [dashboard, { label: "My Team", icon: <MdGroup /> }, { label: "Pipeline", icon: <MdTimeline /> }, settings],
-    closer: [dashboard, { label: "My Leads", icon: <MdPeople /> }, settings],
-    licensed_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, { label: "Compliance", icon: <MdGavel /> }, settings],
-    retention_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, settings],
-    inbound_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, { label: "Call Log", icon: <MdPhoneInTalk /> }, settings],
-    outbound_agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, { label: "Call Log", icon: <MdPhoneInTalk /> }, settings],
-    agent: [dashboard, { label: "My Leads", icon: <MdPeople /> }, settings],
-    report_viewer: [dashboard, { label: "Reports", icon: <MdBarChart /> }, settings],
-    client_viewer: [dashboard, { label: "Campaigns", icon: <MdCampaign /> }, settings],
+    admin: [usersRoles, campaigns, sales, attendance, reports, dashboards, settings],
+    hr_manager: [
+      attendance,
+      timesheets,
+      ...(includeReportsForAssignees ? [reports] : []),
+      ...assignedItems,
+      settings,
+    ],
+    team_lead: [
+      dashboard,
+      campaigns,
+      sales,
+      reports,
+      myTeam,
+      dashboards,
+      settings,
+    ],
+    agent: [attendance, campaigns, sales, ...(includeReportsForAssignees ? [reports] : []), ...assignedItems],
+    client: [campaigns, ...(includeReportsForAssignees ? [reports] : []), ...assignedItems, settings],
   };
 
-  return NAV_MAP[role] || [dashboard, settings];
+  return NAV_MAP[role] ?? [dashboard, settings];
 }
 
-function TenantCrmLayout({ tenantName, roleLabel, role, onLogout, children }) {
+function TenantCrmLayout({ tenantName, roleLabel, role, session, onLogout, children }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const navItems = useMemo(() => getNavItems(role || roleLabel), [role, roleLabel]);
-  const [activeNavLabel, setActiveNavLabel] = useState(navItems[0]?.label || "Dashboard");
+  const normalizedRole = normalizeRole(role || roleLabel);
+  const [assignedDashboards, setAssignedDashboards] = useState([]);
+  const [hasAssignedReports, setHasAssignedReports] = useState(false);
+  const navItems = useMemo(
+    () => getNavItems(normalizedRole, assignedDashboards, hasAssignedReports),
+    [normalizedRole, assignedDashboards, hasAssignedReports]
+  );
+  const [activeNavItem, setActiveNavItem] = useState(navItems[0] || { key: "Settings", label: "Settings" });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    setActiveNavLabel(navItems[0]?.label || "Dashboard");
+    if (!session?.accessToken || normalizedRole === "admin" || normalizedRole === "team_lead") {
+      setAssignedDashboards([]);
+      return undefined;
+    }
+
+    let alive = true;
+    const loadAssignedDashboards = async () => {
+      try {
+        const items = await fetchDashboards(session.accessToken);
+        if (alive) {
+          setAssignedDashboards(items);
+        }
+      } catch (_) {
+        if (alive) {
+          setAssignedDashboards([]);
+        }
+      }
+    };
+
+    loadAssignedDashboards();
+    const handleAssignmentsChanged = () => loadAssignedDashboards();
+    window.addEventListener("dashboards:assignments-changed", handleAssignmentsChanged);
+    return () => {
+      alive = false;
+      window.removeEventListener("dashboards:assignments-changed", handleAssignmentsChanged);
+    };
+  }, [normalizedRole, session?.accessToken]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      setHasAssignedReports(false);
+      return;
+    }
+    if (normalizedRole === "admin" || normalizedRole === "team_lead") {
+      setHasAssignedReports(true);
+      return;
+    }
+
+    let alive = true;
+    const loadReports = async () => {
+      try {
+        const items = await listReports(session.accessToken);
+        if (alive) {
+          setHasAssignedReports(Array.isArray(items) && items.length > 0);
+        }
+      } catch (_) {
+        if (alive) {
+          setHasAssignedReports(false);
+        }
+      }
+    };
+
+    loadReports();
+    return () => {
+      alive = false;
+    };
+  }, [normalizedRole, session?.accessToken]);
+
+  useEffect(() => {
+    setActiveNavItem((previous) => {
+      const items = navItems.flatMap((item) => [item, ...(item.children || [])]);
+      return items.find((item) => item.key === previous?.key) || navItems[0] || { key: "Settings", label: "Settings" };
+    });
   }, [navItems]);
 
   const content = isValidElement(children)
-    ? cloneElement(children, { activeNavLabel })
+    ? cloneElement(children, { activeNavLabel: activeNavItem?.label, activeNavItem })
     : children;
 
-  const handleNavClick = (label) => {
-    setActiveNavLabel(label);
+  const handleNavClick = (item) => {
+    setActiveNavItem(item.children?.length ? item.children[0] : item);
     if (isMobile) setMobileOpen(false);
   };
 
@@ -94,26 +181,48 @@ function TenantCrmLayout({ tenantName, roleLabel, role, onLogout, children }) {
       {/* Nav items */}
       <List dense sx={{ flex: 1, pt: 1 }}>
         {navItems.map((item) => (
-          <ListItem key={item.label} disablePadding>
-            <ListItemButton
-              selected={activeNavLabel === item.label}
-              onClick={() => handleNavClick(item.label)}
-              sx={{
-                borderRadius: 1,
-                mx: 1,
-                mb: 0.5,
-                color: "#e8c99a",
-                "&.Mui-selected": { background: "#c8794126", color: "#fff" },
-                "&.Mui-selected:hover": { background: "#c8794133", color: "#fff" },
-                "&:hover": { background: "#5a2d0040", color: "#fff" },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 32, color: "inherit", fontSize: 18 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 13 }} />
-            </ListItemButton>
-          </ListItem>
+          <Box key={item.key}>
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={activeNavItem?.key === item.key || (item.children || []).some((child) => child.key === activeNavItem?.key)}
+                onClick={() => handleNavClick(item)}
+                sx={{
+                  borderRadius: 1,
+                  mx: 1,
+                  mb: 0.5,
+                  color: "#e8c99a",
+                  "&.Mui-selected": { background: "#c8794126", color: "#fff" },
+                  "&.Mui-selected:hover": { background: "#c8794133", color: "#fff" },
+                  "&:hover": { background: "#5a2d0040", color: "#fff" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32, color: "inherit", fontSize: 18 }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 13 }} />
+              </ListItemButton>
+            </ListItem>
+            {(item.children || []).map((child) => (
+              <ListItem key={child.key} disablePadding sx={{ pl: 2.5 }}>
+                <ListItemButton
+                  selected={activeNavItem?.key === child.key}
+                  onClick={() => handleNavClick(child)}
+                  sx={{
+                    borderRadius: 1,
+                    mx: 1,
+                    mb: 0.5,
+                    color: "#d9bb90",
+                    minHeight: 36,
+                    "&.Mui-selected": { background: "#c8794126", color: "#fff" },
+                    "&.Mui-selected:hover": { background: "#c8794133", color: "#fff" },
+                    "&:hover": { background: "#5a2d0040", color: "#fff" },
+                  }}
+                >
+                  <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: 12 }} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </Box>
         ))}
       </List>
 
@@ -175,7 +284,7 @@ function TenantCrmLayout({ tenantName, roleLabel, role, onLogout, children }) {
               {tenantName}
             </Typography>
             <Typography variant="caption" color="#c89060" noWrap>
-              {activeNavLabel}
+              {activeNavItem?.label}
             </Typography>
           </Toolbar>
         </AppBar>

@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
   MenuItem,
   Stack,
   Table,
@@ -45,6 +44,11 @@ import {
   updateTenantUser,
 } from "../services/adminService";
 import CampaignsPanel from "../components/CampaignsPanel";
+import AttendancePanel from "../components/AttendancePanel";
+import SalesPanel from "../components/SalesPanel";
+import DashboardsPanel from "../components/dashboard/DashboardsPanel";
+import ReportsPanel from "../components/reports/ReportsPanel";
+import { useCampaigns } from "../hooks/useCampaigns";
 
 function TenantAdminDashboard({ session, activeNavLabel }) {
   const accessToken = session?.accessToken;
@@ -60,7 +64,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
     displayName: "",
     email: "",
     password: "Test@1234",
-    roleCode: "outbound_agent",
+    roleCode: "agent",
     phoneNumber: "",
     photo: null,
   });
@@ -68,7 +72,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [assignForm, setAssignForm] = useState({
     targetUserId: "",
-    roleCode: "outbound_agent",
+    roleCode: "agent",
   });
   const [tableFilters, setTableFilters] = useState({
     query: "",
@@ -143,8 +147,11 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
       "Dashboard": 0,
       "Users & Roles": 1,
       "Campaigns": 2,
-      "Reports": 3,
-      "Settings": 4,
+      "Sales": 3,
+      "Attendance": 4,
+      "Reports": 5,
+      "Dashboards": 6,
+      "Settings": 7,
     };
     if (activeNavLabel && adminTabIndexByLabel[activeNavLabel] !== undefined) {
       setActiveTab(adminTabIndexByLabel[activeNavLabel]);
@@ -228,6 +235,13 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
       setErrorMessage(err.message || "Unable to delete user.");
     }
   };
+
+  // Thin wrapper so DashboardsPanel can load its own campaigns
+  function DashboardsPanelWrapper({ accessToken: token, role }) {
+    const { campaigns } = useCampaigns(token);
+    return <DashboardsPanel accessToken={token} role={role} campaigns={campaigns} />;
+  }
+
   return (
     <Stack spacing={3}>
       {/* Dashboard tab */}
@@ -255,9 +269,9 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Toggle the roles you want available for your team. Only enabled roles appear when creating users.
               </Typography>
-              <Grid container spacing={1}>
+                <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" } }}>
                 {roles.map((role) => (
-                  <Grid item xs={12} sm={6} md={4} key={role.role_code}>
+                    <Box key={role.role_code}>
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid", borderColor: role.enabled ? "#c87941" : "#e0d6cc", borderRadius: 1, px: 1.5, py: 0.5, background: role.enabled ? "#fff8f2" : "transparent" }}>
                       <Stack>
                         <Typography variant="body2" fontWeight={role.enabled ? 600 : 400}>{role.display_name}</Typography>
@@ -265,9 +279,9 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                       </Stack>
                       <Switch size="small" checked={!!role.enabled} onChange={() => handleToggleRole(role.role_code, role.enabled)} color="warning" />
                     </Box>
-                  </Grid>
+                    </Box>
                 ))}
-              </Grid>
+                </Box>
             </CardContent>
           </Card>
 
@@ -276,26 +290,25 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>Create Sub User</Typography>
               <Stack component="form" spacing={1.5} onSubmit={handleCreateUser}>
-                <Grid container spacing={1.5}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField label="Full name" fullWidth required value={newUserForm.displayName} onChange={(e) => setNewUserForm((p) => ({ ...p, displayName: e.target.value }))} />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField label="Phone number" fullWidth value={newUserForm.phoneNumber} onChange={(e) => setNewUserForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField label="Email" type="email" fullWidth required value={newUserForm.email} onChange={(e) => setNewUserForm((p) => ({ ...p, email: e.target.value }))} />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField label="Temporary password" fullWidth required value={newUserForm.password} onChange={(e) => setNewUserForm((p) => ({ ...p, password: e.target.value }))} />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField label="Initial role" select fullWidth required value={newUserForm.roleCode} onChange={(e) => setNewUserForm((p) => ({ ...p, roleCode: e.target.value }))}>
+                <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
+                  <TextField label="Full name" fullWidth required value={newUserForm.displayName} onChange={(e) => setNewUserForm((p) => ({ ...p, displayName: e.target.value }))} />
+                  <TextField label="Phone number" fullWidth value={newUserForm.phoneNumber} onChange={(e) => setNewUserForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
+                  <TextField label="Email" type="email" fullWidth required value={newUserForm.email} onChange={(e) => setNewUserForm((p) => ({ ...p, email: e.target.value }))} />
+                  <TextField label="Temporary password" fullWidth required value={newUserForm.password} onChange={(e) => setNewUserForm((p) => ({ ...p, password: e.target.value }))} />
+                  <Box>
+                    <TextField
+                      label="Initial role"
+                      select
+                      fullWidth
+                      required
+                      value={enabledRoles.some((role) => role.role_code === newUserForm.roleCode) ? newUserForm.roleCode : ""}
+                      onChange={(e) => setNewUserForm((p) => ({ ...p, roleCode: e.target.value }))}
+                    >
                       {enabledRoles.length === 0 && <MenuItem disabled value="">No roles enabled — toggle above first</MenuItem>}
                       {enabledRoles.map((r) => <MenuItem key={r.role_code} value={r.role_code}>{r.display_name}</MenuItem>)}
                     </TextField>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
+                  </Box>
+                  <Box>
                     <Stack direction="row" alignItems="center" spacing={1.5} sx={{ pt: 0.5 }}>
                       <Avatar src={photoPreview || undefined} sx={{ width: 44, height: 44, cursor: "pointer", border: "2px dashed #c87941" }} onClick={() => photoInputRef.current?.click()} />
                       <Stack>
@@ -304,8 +317,8 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                       </Stack>
                       <input ref={photoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) { setNewUserForm((p) => ({ ...p, photo: f })); setPhotoPreview(URL.createObjectURL(f)); } }} />
                     </Stack>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
                 <Box>
                   <Button type="submit" variant="contained" disabled={!newUserForm.displayName || !newUserForm.email || !newUserForm.roleCode}>Create User</Button>
                 </Box>
@@ -321,7 +334,13 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                 <TextField label="Select user" select fullWidth value={assignForm.targetUserId} onChange={(e) => setAssignForm((p) => ({ ...p, targetUserId: e.target.value }))}>
                   {users.map((u) => <MenuItem key={u.user_id} value={u.user_id}>{u.display_name} ({u.email})</MenuItem>)}
                 </TextField>
-                <TextField label="Role" select fullWidth value={assignForm.roleCode} onChange={(e) => setAssignForm((p) => ({ ...p, roleCode: e.target.value }))}>
+                <TextField
+                  label="Role"
+                  select
+                  fullWidth
+                  value={enabledRoles.some((role) => role.role_code === assignForm.roleCode) ? assignForm.roleCode : ""}
+                  onChange={(e) => setAssignForm((p) => ({ ...p, roleCode: e.target.value }))}
+                >
                   {enabledRoles.map((r) => <MenuItem key={r.role_code} value={r.role_code}>{r.display_name}</MenuItem>)}
                 </TextField>
                 <Button type="submit" variant="outlined" sx={{ minWidth: 120 }} disabled={!assignForm.targetUserId || !assignForm.roleCode}>Assign</Button>
@@ -333,8 +352,8 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
           <Card sx={{ border: "1px solid #ead8c4" }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>Tenant Users ({filteredUsers.length} / {users.length})</Typography>
-              <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                <Grid item xs={12} md={5}>
+              <Box sx={{ display: "grid", gap: 1.5, mb: 2, gridTemplateColumns: { xs: "1fr", md: "minmax(0, 5fr) minmax(0, 3fr) minmax(0, 3fr) minmax(0, 1fr)" } }}>
+                <Box>
                   <TextField
                     label="Search users"
                     fullWidth
@@ -342,8 +361,8 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                     value={tableFilters.query}
                     onChange={(e) => setTableFilters((prev) => ({ ...prev, query: e.target.value }))}
                   />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                </Box>
+                <Box>
                   <TextField
                     label="Status"
                     select
@@ -356,8 +375,8 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                     <MenuItem value="suspended">Suspended</MenuItem>
                     <MenuItem value="pending_verification">Pending verification</MenuItem>
                   </TextField>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                </Box>
+                <Box>
                   <TextField
                     label="Role"
                     select
@@ -372,8 +391,8 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                       </MenuItem>
                     ))}
                   </TextField>
-                </Grid>
-                <Grid item xs={12} md={1}>
+                </Box>
+                <Box>
                   <Button
                     variant="text"
                     fullWidth
@@ -382,8 +401,8 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                   >
                     Reset
                   </Button>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
               {isMobile ? (
                 /* Mobile: card list */
                 <Stack spacing={1.5} sx={{ mt: 1 }}>
@@ -463,18 +482,26 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
 
       {/* Reports tab */}
       {activeTab === 3 && (
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Reports</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Tenant-wide analytics, agent performance, and exportable reports will appear here.
-            </Typography>
-          </CardContent>
-        </Card>
+        <SalesPanel accessToken={accessToken} />
+      )}
+
+      {/* Attendance tab */}
+      {activeTab === 4 && (
+        <AttendancePanel accessToken={accessToken} users={users} />
+      )}
+
+      {/* Reports tab */}
+      {activeTab === 5 && (
+        <ReportsPanel session={session} accessToken={accessToken} />
+      )}
+
+      {/* Dashboards tab */}
+      {activeTab === 6 && (
+        <DashboardsPanelWrapper accessToken={accessToken} role="admin" />
       )}
 
       {/* Settings tab */}
-      {activeTab === 4 && (
+      {activeTab === 7 && (
         <Card sx={{ border: "1px solid #ead8c4" }}>
           <CardContent>
             <Typography variant="h6">Settings</Typography>
@@ -495,14 +522,14 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
               <Typography variant="h6">{viewUser.display_name}</Typography>
               <Chip label={viewUser.status} color={viewUser.status === "active" ? "success" : "error"} />
               <Divider flexItem />
-              <Grid container spacing={1} sx={{ width: "100%" }}>
-                {[["Email", viewUser.email], ["Phone", viewUser.phone_number || "—"], ["User ID", viewUser.user_id], ["Roles", viewUser.roles.map((r) => r.display_name).join(", ") || "None"]].map(([label, value]) => (
-                  <Grid item xs={12} key={label}>
+              <Box sx={{ width: "100%", display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
+                {[ ["Email", viewUser.email], ["Phone", viewUser.phone_number || "—"], ["User ID", viewUser.user_id], ["Roles", viewUser.roles.map((r) => r.display_name).join(", ") || "None"]].map(([label, value]) => (
+                  <Box key={label}>
                     <Typography variant="caption" color="text.secondary">{label}</Typography>
                     <Typography variant="body2" sx={{ wordBreak: "break-all" }}>{value}</Typography>
-                  </Grid>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             </Stack>
           )}
         </DialogContent>

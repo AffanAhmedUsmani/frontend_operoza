@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import RoleDashboardSwitch from "../features/crm/components/RoleDashboardSwitch";
 import TenantCrmLayout from "../features/crm/layouts/TenantCrmLayout";
 import { clearSession, loadSession } from "../features/auth/utils/session";
+import { normalizeRole } from "../features/crm/components/sales/salesFormUtils";
 
 function TenantPortalPage() {
   const { companySlug } = useParams();
@@ -14,6 +15,8 @@ function TenantPortalPage() {
     return <Navigate to={`/operoza/${companySlug}/login`} replace />;
   }
 
+  const normalizedRole = normalizeRole(session?.user?.role || session?.role || "");
+
   const handleLogout = () => {
     clearSession();
     navigate(`/operoza/${companySlug}/login`, { replace: true });
@@ -21,12 +24,13 @@ function TenantPortalPage() {
 
   return (
     <TenantCrmLayout
+      session={session}
       tenantName={session.tenant.companyName}
-      roleLabel={session.user.role}
-      role={session.user.role}
+      roleLabel={normalizedRole}
+      role={normalizedRole}
       onLogout={handleLogout}
     >
-      <RoleDashboardSwitch role={session.user.role} session={session} />
+      <RoleDashboardSwitch role={normalizedRole} session={session} />
     </TenantCrmLayout>
   );
 }
