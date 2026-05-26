@@ -4,12 +4,10 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   IconButton,
   Stack,
   Tab,
@@ -18,22 +16,37 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { MdAdd, MdDelete, MdEdit } from "react-icons/md";
-import {
-  createWidget,
-  deleteWidget,
-  fetchDashboardDetail,
-  updateWidget,
-} from "../../services/dashboardService";
+import { MdDelete, MdEdit } from "react-icons/md";
+import { createWidget, fetchDashboardDetail, updateWidget } from "../../services/dashboardService";
 import DashboardViewer from "./DashboardViewer";
-import WidgetFormDialog from "./WidgetFormDialog";
 import DashboardStudio from "./studio/DashboardStudio";
+
+function normalizeStudioWidget(widget) {
+  const position = widget?.position && typeof widget.position === "object" ? widget.position : {};
+  return {
+    ...widget,
+    gridSpan: widget?.gridSpan || position.span || 1,
+    gridRowSpan: widget?.gridRowSpan || position.rowSpan || 1,
+    position,
+  };
+}
+
+function toWidgetPosition(widget) {
+  const position = widget?.position && typeof widget.position === "object" ? widget.position : {};
+  return {
+    ...position,
+    row: position.row ?? 0,
+    col: position.col ?? 0,
+    span: widget?.gridSpan || position.span || 1,
+    rowSpan: widget?.gridRowSpan || position.rowSpan || 1,
+  };
+}
 
 /**
  * DashboardBuilderPanel
  *
  * Full management UI for a single dashboard (admin / team_lead only).
- * Provides two tabs: "View" (live computed data) and "Builder" (add/edit/delete widgets).
+ * Provides two tabs: "Live View" and "Studio Builder".
  *
  * Props:
  *   accessToken   — JWT string
@@ -44,13 +57,7 @@ import DashboardStudio from "./studio/DashboardStudio";
  */
 function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, onRenamed, onDelete, updateDashboard }) {
   const [tab, setTab] = useState(0);
-  const [widgets, setWidgets] = useState(dashboard.widgets || []);
-  const [widgetDialogOpen, setWidgetDialogOpen] = useState(false);
-  const [editingWidget, setEditingWidget] = useState(null);
-  const [savingWidget, setSavingWidget] = useState(false);
-  const [widgetError, setWidgetError] = useState(null);
-  const [deleteWidgetTarget, setDeleteWidgetTarget] = useState(null);
-  const [deletingWidget, setDeletingWidget] = useState(false);
+  const [widgets, setWidgets] = useState([]);
 
   // Rename state
   const [renameOpen, setRenameOpen] = useState(false);
@@ -61,56 +68,27 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
   // Delete dashboard confirmation
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-  // Re-sync widgets from the detail endpoint after mutations
+  // Re-sync widgets from the detail endpoint after mutations.
   const refreshWidgets = useCallback(async () => {
     try {
       const detail = await fetchDashboardDetail(accessToken, dashboard.dashboard_id);
-      setWidgets(detail.widgets || []);
+      const normalizedWidgets = Array.isArray(detail.widgets)
+        ? detail.widgets.map(normalizeStudioWidget)
+        : [];
+      setWidgets(normalizedWidgets);
+      return normalizedWidgets;
     } catch (_) {
       // non-critical — viewer will still show via the data endpoint
+      setWidgets([]);
+      return [];
     }
   }, [accessToken, dashboard.dashboard_id]);
 
   // Load widgets on mount — the dashboard object from the list endpoint never
-  // carries a widgets array, so we must fetch the detail to populate the builder.
+  // carries a widgets array, so we must fetch the detail to populate the studio.
   useEffect(() => {
     refreshWidgets();
   }, [refreshWidgets]);
-
-  // ── Widget CRUD ─────────────────────────────────────────────────────────────
-
-  const handleWidgetSubmit = async (payload) => {
-    setSavingWidget(true);
-    setWidgetError(null);
-    try {
-      if (editingWidget) {
-        await updateWidget(accessToken, dashboard.dashboard_id, editingWidget.widget_id, payload);
-      } else {
-        await createWidget(accessToken, dashboard.dashboard_id, payload);
-      }
-      await refreshWidgets();
-      setWidgetDialogOpen(false);
-      setEditingWidget(null);
-    } catch (err) {
-      setWidgetError(err.message || "Failed to save widget");
-    } finally {
-      setSavingWidget(false);
-    }
-  };
-
-  const handleDeleteWidget = async () => {
-    if (!deleteWidgetTarget) return;
-    setDeletingWidget(true);
-    try {
-      await deleteWidget(accessToken, dashboard.dashboard_id, deleteWidgetTarget.widget_id);
-      await refreshWidgets();
-      setDeleteWidgetTarget(null);
-    } catch (err) {
-      // show inline
-    } finally {
-      setDeletingWidget(false);
-    }
-  };
 
   // ── Rename ──────────────────────────────────────────────────────────────────
 
@@ -175,7 +153,6 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
         aria-label="Dashboard sections"
       >
         <Tab label="Live View" id="tab-view" aria-controls="tabpanel-view" />
-        <Tab label="Builder" id="tab-builder" aria-controls="tabpanel-builder" />
         <Tab label="Studio Builder" id="tab-studio" aria-controls="tabpanel-studio" />
       </Tabs>
 
@@ -186,107 +163,29 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
             accessToken={accessToken}
             dashboard={dashboard}
             actorRole={actorRole}
-            canEdit
-            onEditWidget={(w) => { setEditingWidget(w); setWidgetDialogOpen(true); }}
-            onDeleteWidget={(w) => setDeleteWidgetTarget(w)}
+            canEdit={false}
           />
         </Box>
       )}
 
-      {/* Builder tab */}
-      {tab === 1 && (
-        <Box role="tabpanel" id="tabpanel-builder" aria-labelledby="tab-builder">
-          <Stack spacing={2}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="subtitle2" color="text.secondary">
-                {widgets.length} widget{widgets.length !== 1 ? "s" : ""} configured
-              </Typography>
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<MdAdd />}
-                onClick={() => { setEditingWidget(null); setWidgetDialogOpen(true); }}
-                aria-label="Add new widget"
-              >
-                Add Widget
-              </Button>
-            </Stack>
-
-            {widgets.length === 0 ? (
-              <Box
-                sx={{
-                  textAlign: "center",
-                  py: 6,
-                  border: "2px dashed #ead8c4",
-                  borderRadius: 3,
-                }}
-                role="status"
-              >
-                <Typography variant="body2" color="text.secondary">
-                  No widgets yet — add one to get started.
-                </Typography>
-              </Box>
-            ) : (
-              <Stack spacing={1} divider={<Divider />}>
-                {widgets.map((w) => (
-                  <Stack
-                    key={w.widget_id}
-                    direction="row"
-                    alignItems="center"
-                    spacing={1.5}
-                    sx={{ py: 0.75, px: 1 }}
-                  >
-                    <Chip
-                      label={w.type}
-                      size="small"
-                      sx={{ bgcolor: "#f5ece0", color: "#7c3f17", fontWeight: 700, fontSize: "0.68rem" }}
-                    />
-                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                      {w.title}
-                    </Typography>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => { setEditingWidget(w); setWidgetDialogOpen(true); }}
-                        aria-label={`Edit ${w.title}`}
-                      >
-                        <MdEdit size={15} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => setDeleteWidgetTarget(w)}
-                        aria-label={`Delete ${w.title}`}
-                      >
-                        <MdDelete size={15} />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        </Box>
-      )}
-
       {/* Studio Builder tab - drag-drop interface */}
-      {tab === 2 && (
+      {tab === 1 && (
         <Box role="tabpanel" id="tabpanel-studio" aria-labelledby="tab-studio">
           <DashboardStudio
             dashboardId={dashboard.dashboard_id}
             dashboardName={dashboard.name}
+            campaign={campaign}
             initialWidgets={widgets}
             onSave={async (updatedWidgets) => {
-              // Save all widgets to backend
+              // Save all widgets to backend, preserving widget layout in position JSON.
               for (const widget of updatedWidgets) {
+                const position = toWidgetPosition(widget);
                 if (widget.widget_id.startsWith("temp-")) {
-                  // New widget - create it
                   await createWidget(accessToken, dashboard.dashboard_id, {
                     type: widget.type,
                     title: widget.title,
                     config_json: widget.config_json,
+                    position,
                   });
                 } else {
                   // Existing widget - update it
@@ -294,6 +193,7 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
                     type: widget.type,
                     title: widget.title,
                     config_json: widget.config_json,
+                    position,
                   });
                 }
               }
@@ -311,46 +211,6 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
           />
         </Box>
       )}
-
-      {/* Widget add/edit dialog */}
-      <WidgetFormDialog
-        open={widgetDialogOpen}
-        initialData={editingWidget}
-        campaign={campaign}
-        onClose={() => { setWidgetDialogOpen(false); setEditingWidget(null); setWidgetError(null); }}
-        onSubmit={handleWidgetSubmit}
-        saving={savingWidget}
-        error={widgetError}
-      />
-
-      {/* Confirm delete widget dialog */}
-      <Dialog
-        open={!!deleteWidgetTarget}
-        onClose={() => setDeleteWidgetTarget(null)}
-        maxWidth="xs"
-        fullWidth
-        aria-labelledby="confirm-delete-widget-title"
-      >
-        <DialogTitle id="confirm-delete-widget-title">Delete Widget</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Delete <strong>{deleteWidgetTarget?.title}</strong>? This cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteWidgetTarget(null)} disabled={deletingWidget}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleDeleteWidget}
-            disabled={deletingWidget}
-          >
-            {deletingWidget ? "Deleting…" : "Delete"}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Rename dashboard dialog */}
       <Dialog

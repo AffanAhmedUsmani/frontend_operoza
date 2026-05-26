@@ -50,6 +50,52 @@ import ROIWidget from "./widgets/ROIWidget";
 const CHART_COLORS = ["#c05314", "#0f8a7a", "#f58a3c", "#45b8ab", "#8f3a11", "#0b6458"];
 const INLINE_EDIT_ROLES = new Set(["admin", "client"]);
 
+function getRowValue(row, ref) {
+  if (!row || !ref) {
+    return undefined;
+  }
+
+  return String(ref)
+    .split(".")
+    .reduce((value, key) => (value && typeof value === "object" ? value[key] : undefined), row);
+}
+
+function evaluateComputedColumn(expression, row) {
+  const trimmed = String(expression || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const transformed = trimmed.replace(/\b([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w+)+)\b/g, (match) => {
+    return `get(${JSON.stringify(match)})`;
+  });
+
+  try {
+    const evaluator = new Function(
+      "get",
+      "concat",
+      "num",
+      "round",
+      "abs",
+      `return (${transformed});`
+    );
+    const result = evaluator(
+      (ref) => getRowValue(row, ref),
+      (...parts) => parts.filter((part) => part !== null && part !== undefined).map((part) => String(part)).join(""),
+      (value) => Number(value || 0),
+      Math.round,
+      Math.abs
+    );
+
+    if (result === null || result === undefined || result === "") {
+      return "";
+    }
+    return result;
+  } catch (_) {
+    return "";
+  }
+}
+
 function MetricWidget({ widget }) {
   if (widget.error) {
     return <Alert severity="warning" sx={{ mt: 1 }}>{widget.error}</Alert>;
@@ -156,19 +202,33 @@ function TableWidget({ widget, accessToken, actorRole, onRefresh }) {
   const columns = useMemo(() => {
     const configCols = widget.config_json?.columns;
     if (Array.isArray(configCols) && configCols.length > 0) {
-      return configCols.map((ref) => {
-        const dotIdx = ref.indexOf(".");
-        if (dotIdx === -1) return { ns: ref, key: null, label: ref };
-        return { ns: ref.slice(0, dotIdx), key: ref.slice(dotIdx + 1), label: ref };
-      });
+      return configCols
+        .map((ref, index) => {
+          if (typeof ref === "string") {
+            const dotIdx = ref.indexOf(".");
+            if (dotIdx === -1) return { kind: "field", ns: ref, key: null, label: ref };
+            return { kind: "field", ns: ref.slice(0, dotIdx), key: ref.slice(dotIdx + 1), label: ref, ref };
+          }
+
+          if (ref && typeof ref === "object" && (ref.kind === "computed" || ref.expression)) {
+            return {
+              kind: "computed",
+              label: ref.label || `Calculated ${index + 1}`,
+              expression: ref.expression || "",
+            };
+          }
+
+          return null;
+        })
+        .filter(Boolean);
     }
     if (rows.length === 0) return [];
     const firstRow = rows[0];
     const namespaces = Object.keys(firstRow);
     return namespaces.flatMap((ns) =>
       typeof firstRow[ns] === "object" && firstRow[ns] !== null
-        ? Object.keys(firstRow[ns]).map((k) => ({ ns, key: k, label: `${ns}.${k}` }))
-        : [{ ns, key: null, label: ns }]
+        ? Object.keys(firstRow[ns]).map((k) => ({ kind: "field", ns, key: k, label: `${ns}.${k}` }))
+        : [{ kind: "field", ns, key: null, label: ns }]
     );
   }, [rows, widget.config_json?.columns]);
 
@@ -232,8 +292,12 @@ function TableWidget({ widget, accessToken, actorRole, onRefresh }) {
               return (
                 <TableRow key={saleId} hover>
                   {columns.map((col) => {
-                    const val = col.key !== null ? row[col.ns]?.[col.key] : row[col.ns];
-                    const isEditablePayloadCell = isEditing && col.ns === "payload" && col.key !== null;
+                    const val = col.kind === "computed"
+                      ? evaluateComputedColumn(col.expression, row)
+                      : col.key !== null
+                        ? row[col.ns]?.[col.key]
+                        : row[col.ns];
+                    const isEditablePayloadCell = isEditing && col.kind !== "computed" && col.ns === "payload" && col.key !== null;
                     return (
                       <TableCell key={`${saleId}-${col.label}`} sx={{ fontSize: "0.78rem", verticalAlign: "top" }}>
                         {isEditablePayloadCell ? (

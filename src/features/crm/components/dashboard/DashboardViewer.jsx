@@ -138,7 +138,7 @@ function DashboardViewer({ accessToken, dashboard, actorRole, canEdit = false, o
           </Typography>
           {canEdit && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Use the Builder tab to add your first widget.
+              Use the Studio Builder to add your first widget.
             </Typography>
           )}
         </Box>

@@ -3,9 +3,10 @@ import { Box, Card, CardContent, Chip, Grid, Stack, Tab, Tabs, Typography } from
 import DashboardsPanel from "../components/dashboard/DashboardsPanel";
 import CampaignsPanel from "../components/CampaignsPanel";
 import SalesPanel from "../components/SalesPanel";
+import ReportsPanel from "../components/reports/ReportsPanel";
 import { useCampaigns } from "../hooks/useCampaigns";
 
-const TAB_MAP = { Dashboard: 0, Campaigns: 1, Sales: 2, "My Team": 3, Dashboards: 4, Settings: 5 };
+const TAB_MAP = { Dashboard: 0, Campaigns: 1, Sales: 2, Reports: 3, "My Team": 4, Dashboards: 5, Settings: 6 };
 
 function TabPanel({ value, index, children }) {
   return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null;
@@ -66,10 +67,14 @@ function TeamLeadDashboard({ session, activeNavLabel }) {
       </TabPanel>
 
       <TabPanel value={tab} index={2}>
-        <SalesPanel session={session} />
+        <SalesPanel accessToken={accessToken} />
       </TabPanel>
 
       <TabPanel value={tab} index={3}>
+        <ReportsPanel session={session} accessToken={accessToken} />
+      </TabPanel>
+
+      <TabPanel value={tab} index={4}>
         <Card sx={{ border: "1px solid #ead8c4" }}>
           <CardContent>
             <Typography variant="h6">My Team</Typography>
@@ -78,11 +83,11 @@ function TeamLeadDashboard({ session, activeNavLabel }) {
         </Card>
       </TabPanel>
 
-      <TabPanel value={tab} index={4}>
+      <TabPanel value={tab} index={5}>
         <DashboardsPanel accessToken={accessToken} role="team_lead" campaigns={campaigns} />
       </TabPanel>
 
-      <TabPanel value={tab} index={5}>
+      <TabPanel value={tab} index={6}>
         <Card sx={{ border: "1px solid #ead8c4" }}>
           <CardContent>
             <Typography variant="h6">Settings</Typography>

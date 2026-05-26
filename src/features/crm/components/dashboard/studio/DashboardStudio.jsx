@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
 import StudioToolbar from "./StudioToolbar";
 import WidgetPalette from "./WidgetPalette";
@@ -27,6 +27,7 @@ import PropertiesPanel from "./PropertiesPanel";
 function DashboardStudio({
   dashboardId,
   dashboardName,
+  campaign,
   initialWidgets = [],
   onSave,
   onSaveDraft,
@@ -42,6 +43,14 @@ function DashboardStudio({
   const [hasChanges, setHasChanges] = useState(false);
   const [historyStack, setHistoryStack] = useState([initialWidgets]); // For undo
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  useEffect(() => {
+    setWidgets(initialWidgets);
+    setSelectedWidget(null);
+    setHistoryStack([initialWidgets]);
+    setHistoryIndex(0);
+    setHasChanges(false);
+  }, [initialWidgets]);
 
   // Track original state to detect changes
   const originalState = JSON.stringify(initialWidgets);
@@ -176,6 +185,7 @@ function DashboardStudio({
         {/* Right: Properties Panel - Progressive Disclosure */}
         <PropertiesPanel
           widget={selectedWidget}
+          campaign={campaign}
           onUpdate={handleUpdateWidget}
           onClose={() => setSelectedWidget(null)}
         />

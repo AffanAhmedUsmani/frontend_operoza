@@ -1,6 +1,7 @@
 import { Card, CardContent, Stack, Typography } from "@mui/material";
 import AttendancePanel from "../components/AttendancePanel";
 import CampaignsPanel from "../components/CampaignsPanel";
+import ReportsPanel from "../components/reports/ReportsPanel";
 import SalesPanel from "../components/SalesPanel";
 
 function AgentDashboard({ session, activeNavLabel }) {
@@ -21,7 +22,11 @@ function AgentDashboard({ session, activeNavLabel }) {
         <SalesPanel accessToken={accessToken} />
       ) : null}
 
-      {! ["Attendance", "Campaigns", "Sales"].includes(currentSection) ? (
+      {currentSection === "Reports" ? (
+        <ReportsPanel session={session} accessToken={accessToken} />
+      ) : null}
+
+      {! ["Attendance", "Campaigns", "Sales", "Reports"].includes(currentSection) ? (
         <Card sx={{ border: "1px solid #ead8c4" }}>
           <CardContent>
             <Typography variant="h6">Agent Workspace</Typography>

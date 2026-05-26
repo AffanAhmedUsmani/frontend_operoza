@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box, Card, CardContent, Stack, Tab, Tabs, Typography } from "@mui/material";
 import DashboardsPanel from "../components/dashboard/DashboardsPanel";
+import ReportsPanel from "../components/reports/ReportsPanel";
 import { useCampaigns } from "../hooks/useCampaigns";
 
 const TAB_MAP = { Dashboard: 0, Campaigns: 1, Reports: 2, Dashboards: 3, Settings: 4 };
@@ -53,12 +54,7 @@ function ClientViewerDashboard({ session, activeNavLabel }) {
       </TabPanel>
 
       <TabPanel value={tab} index={2}>
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Reports</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>Downloadable summaries and exportable reports will appear here.</Typography>
-          </CardContent>
-        </Card>
+        <ReportsPanel session={session} accessToken={accessToken} />
       </TabPanel>
 
       <TabPanel value={tab} index={3}>

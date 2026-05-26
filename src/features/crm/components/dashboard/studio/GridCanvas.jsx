@@ -103,6 +103,8 @@ function GridCanvas({
         p: 2,
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
+        gridAutoRows: "120px",
+        gridAutoFlow: "dense",
         gap: 2,
         alignContent: "start",
         overflow: "auto",

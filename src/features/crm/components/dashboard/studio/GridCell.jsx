@@ -22,7 +22,7 @@ import { getWidgetByType } from "./widgetLibrary";
  * Shows placeholder if no data yet (progressive disclosure).
  * 
  * Props:
- *   widget           — { widget_id, type, title, config_json, gridSpan }
+ *   widget           — { widget_id, type, title, config_json, gridSpan, gridRowSpan }
  *   isSelected       — bool
  *   isDragSource     — bool (being dragged)
  *   onSelect         — (widget) => void
@@ -50,6 +50,7 @@ function GridCell({
       <Box
         sx={{
           gridColumn: `span ${widget.gridSpan || 1}`,
+          gridRow: `span ${widget.gridRowSpan || 1}`,
           bgcolor: "#ffebee",
           border: "1px dashed #ef5350",
           borderRadius: 1,
@@ -71,6 +72,7 @@ function GridCell({
       onClick={() => onSelect(widget)}
       sx={{
         gridColumn: `span ${Math.min(widget.gridSpan || 1, 3)}`,
+        gridRow: `span ${Math.min(widget.gridRowSpan || 1, 4)}`,
         cursor: "pointer",
         border: isSelected ? "2px solid" : "1px solid #ead8c4",
         borderColor: isSelected ? "primary.main" : "#ead8c4",
@@ -205,7 +207,9 @@ function GridCell({
           color: "#999",
         }}
       >
-        <span>Width: {widget.gridSpan || 1}/3 columns</span>
+        <span>
+          Size: {widget.gridSpan || 1}/3 cols × {widget.gridRowSpan || 1} rows
+        </span>
       </Box>
 
       {/* Context menu */}
@@ -234,7 +238,7 @@ function GridCell({
             }
           }}
         >
-          Resize ({widget.gridSpan || 1} → {widget.gridSpan === 1 ? 2 : widget.gridSpan === 2 ? 3 : 1})
+          Resize width ({widget.gridSpan || 1} → {widget.gridSpan === 1 ? 2 : widget.gridSpan === 2 ? 3 : 1})
         </MenuItem>
         <MenuItem
           onClick={(e) => {

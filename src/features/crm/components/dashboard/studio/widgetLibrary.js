@@ -176,6 +176,13 @@ export function createNewWidget(type) {
     title: meta.name,
     config_json: meta.defaultConfig,
     gridSpan: meta.defaultSpan,
+    gridRowSpan: 1,
     gridPosition: null, // Set by canvas
+    position: {
+      row: 0,
+      col: 0,
+      span: meta.defaultSpan,
+      rowSpan: 1,
+    },
   };
 }

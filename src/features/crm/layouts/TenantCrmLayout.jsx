@@ -31,10 +31,11 @@ import {
 } from "react-icons/md";
 import { normalizeRole } from "../components/sales/salesFormUtils";
 import { fetchDashboards } from "../services/dashboardService";
+import { listReports } from "../services/reportingService";
 
 const DRAWER_WIDTH = 220;
 
-function getNavItems(role, assignedDashboards = []) {
+function getNavItems(role, assignedDashboards = [], includeReportsForAssignees = false) {
   const dashboard  = { key: "Dashboard", label: "Dashboard", icon: <MdDashboard /> };
   const settings   = { key: "Settings", label: "Settings", icon: <MdSettings /> };
   const campaigns  = { key: "Campaigns", label: "Campaigns", icon: <MdCampaign /> };
@@ -59,6 +60,7 @@ function getNavItems(role, assignedDashboards = []) {
     hr_manager: [
       attendance,
       timesheets,
+      ...(includeReportsForAssignees ? [reports] : []),
       ...assignedItems,
       settings,
     ],
@@ -66,12 +68,13 @@ function getNavItems(role, assignedDashboards = []) {
       dashboard,
       campaigns,
       sales,
+      reports,
       myTeam,
       dashboards,
       settings,
     ],
-    agent: [attendance, campaigns, sales, ...assignedItems],
-    client: [campaigns, reports, ...assignedItems, settings],
+    agent: [attendance, campaigns, sales, ...(includeReportsForAssignees ? [reports] : []), ...assignedItems],
+    client: [campaigns, ...(includeReportsForAssignees ? [reports] : []), ...assignedItems, settings],
   };
 
   return NAV_MAP[role] ?? [dashboard, settings];
@@ -82,7 +85,11 @@ function TenantCrmLayout({ tenantName, roleLabel, role, session, onLogout, child
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const normalizedRole = normalizeRole(role || roleLabel);
   const [assignedDashboards, setAssignedDashboards] = useState([]);
-  const navItems = useMemo(() => getNavItems(normalizedRole, assignedDashboards), [normalizedRole, assignedDashboards]);
+  const [hasAssignedReports, setHasAssignedReports] = useState(false);
+  const navItems = useMemo(
+    () => getNavItems(normalizedRole, assignedDashboards, hasAssignedReports),
+    [normalizedRole, assignedDashboards, hasAssignedReports]
+  );
   const [activeNavItem, setActiveNavItem] = useState(navItems[0] || { key: "Settings", label: "Settings" });
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -112,6 +119,36 @@ function TenantCrmLayout({ tenantName, roleLabel, role, session, onLogout, child
     return () => {
       alive = false;
       window.removeEventListener("dashboards:assignments-changed", handleAssignmentsChanged);
+    };
+  }, [normalizedRole, session?.accessToken]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      setHasAssignedReports(false);
+      return;
+    }
+    if (normalizedRole === "admin" || normalizedRole === "team_lead") {
+      setHasAssignedReports(true);
+      return;
+    }
+
+    let alive = true;
+    const loadReports = async () => {
+      try {
+        const items = await listReports(session.accessToken);
+        if (alive) {
+          setHasAssignedReports(Array.isArray(items) && items.length > 0);
+        }
+      } catch (_) {
+        if (alive) {
+          setHasAssignedReports(false);
+        }
+      }
+    };
+
+    loadReports();
+    return () => {
+      alive = false;
     };
   }, [normalizedRole, session?.accessToken]);
 
