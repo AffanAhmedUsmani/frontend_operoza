@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiRequest } from "../../../axious/api";
+import { NORMALIZED_API_BASE_URL, apiRequest } from "../../../axious/api";
 
 function authHeaders(accessToken) {
   return {
@@ -66,7 +66,7 @@ async function importCampaignSheet(accessToken, { file, campaignName = "", statu
   if (campaignName.trim()) formData.append("campaign_name", campaignName.trim());
   if (statusCode.trim()) formData.append("status_code", statusCode.trim());
 
-  const response = await fetch(`${API_BASE_URL}/api/crm/campaigns/import-sheet`, {
+  const response = await fetch(`${NORMALIZED_API_BASE_URL}/api/crm/campaigns/import-sheet`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -88,7 +88,7 @@ async function uploadCampaignAudio(accessToken, { file, campaignId, fieldKey, sa
   formData.append("field_key", fieldKey);
   if (saleId) formData.append("sale_id", saleId);
 
-  const response = await fetch(`${API_BASE_URL}/api/crm/campaigns/audio/upload`, {
+  const response = await fetch(`${NORMALIZED_API_BASE_URL}/api/crm/campaigns/audio/upload`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,

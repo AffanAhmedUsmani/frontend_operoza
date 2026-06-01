@@ -26,4 +26,4 @@ async function apiRequest(path, options = {}) {
 	return data;
 }
 
-export { API_BASE_URL, apiRequest };
+export { API_BASE_URL, NORMALIZED_API_BASE_URL, apiRequest };
