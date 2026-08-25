@@ -10,7 +10,7 @@ function AssignedDashboardWorkspace({ session, dashboard, role }) {
 
   return (
     <Stack spacing={2}>
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={1}>
             <Typography variant="h5" fontWeight={700}>
@@ -20,7 +20,11 @@ function AssignedDashboardWorkspace({ session, dashboard, role }) {
               Assigned dashboard view. Widgets below reflect the configuration created by your admin or team lead.
             </Typography>
             <Box>
-              <Chip size="small" label={`Campaign ${dashboard.campaign_id}`} sx={{ bgcolor: "#f5ece0", color: "#7c3f17" }} />
+              <Chip
+                size="small"
+                label={dashboard.campaign_name ? `Campaign ${dashboard.campaign_name}` : `Campaign ${dashboard.campaign_id}`}
+                sx={{ bgcolor: "brand.subtle", color: "primary.dark" }}
+              />
             </Box>
           </Stack>
         </CardContent>

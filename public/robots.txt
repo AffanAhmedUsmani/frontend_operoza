@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /operoza/
+
+Sitemap: https://operoza.com/sitemap.xml

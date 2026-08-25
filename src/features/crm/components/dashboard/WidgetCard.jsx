@@ -20,6 +20,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import {
   Area,
   AreaChart,
@@ -46,55 +47,35 @@ import TargetWidget from "./widgets/TargetWidget";
 import QAScoreWidget from "./widgets/QAScoreWidget";
 import FlaggedCallsWidget from "./widgets/FlaggedCallsWidget";
 import ROIWidget from "./widgets/ROIWidget";
+import { evaluateSafeExpression } from "./safeExpressionEvaluator";
 
-const CHART_COLORS = ["#c05314", "#0f8a7a", "#f58a3c", "#45b8ab", "#8f3a11", "#0b6458"];
 const INLINE_EDIT_ROLES = new Set(["admin", "client"]);
 
-function getRowValue(row, ref) {
-  if (!row || !ref) {
-    return undefined;
-  }
-
-  return String(ref)
-    .split(".")
-    .reduce((value, key) => (value && typeof value === "object" ? value[key] : undefined), row);
+// Post-Sprint-20 - the central color controller (theme.js's buildTheme())
+// only produces MUI theme tokens, which recharts' own props (stroke,
+// fill, stopColor...) can't resolve on their own - they need real color
+// values. This is the one place per-tenant color has to be read out of
+// the theme object explicitly rather than via an sx token string, so
+// chart segments still track the tenant's palette instead of a
+// hardcoded 6-color array.
+function getChartColors(theme) {
+  return [
+    theme.palette.primary.main,
+    theme.palette.secondary.main,
+    theme.palette.primary.light,
+    theme.palette.secondary.light,
+    theme.palette.primary.dark,
+    theme.palette.secondary.dark,
+  ];
 }
 
-function evaluateComputedColumn(expression, row) {
-  const trimmed = String(expression || "").trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  const transformed = trimmed.replace(/\b([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w+)+)\b/g, (match) => {
-    return `get(${JSON.stringify(match)})`;
-  });
-
-  try {
-    const evaluator = new Function(
-      "get",
-      "concat",
-      "num",
-      "round",
-      "abs",
-      `return (${transformed});`
-    );
-    const result = evaluator(
-      (ref) => getRowValue(row, ref),
-      (...parts) => parts.filter((part) => part !== null && part !== undefined).map((part) => String(part)).join(""),
-      (value) => Number(value || 0),
-      Math.round,
-      Math.abs
-    );
-
-    if (result === null || result === undefined || result === "") {
-      return "";
-    }
-    return result;
-  } catch (_) {
-    return "";
-  }
-}
+// Sprint 7 (docs/SPRINT_PLAN.md) - CRITICAL fix: this used to build and
+// `new Function(...)` a tenant-authored expression string directly -
+// genuine stored-XSS, since this component renders once per table row for
+// every viewer of the dashboard. evaluateSafeExpression (imported above)
+// never constructs or executes code from the string; see
+// safeExpressionEvaluator.js for the full explanation.
+const evaluateComputedColumn = evaluateSafeExpression;
 
 function MetricWidget({ widget }) {
   if (widget.error) {
@@ -113,15 +94,25 @@ function MetricWidget({ widget }) {
   );
 }
 
-function renderChartByVariant(data, variant) {
+function renderChartByVariant(data, variant, theme) {
+  const chartColors = getChartColors(theme);
+  const gridColor = theme.palette.divider;
+  const tickStyle = { fontSize: 11, fill: theme.palette.text.secondary };
+  const tooltipStyle = {
+    borderRadius: 12,
+    border: `1px solid ${theme.palette.divider}`,
+    background: theme.palette.background.paper,
+    color: theme.palette.text.primary,
+  };
+
   if (variant === "line") {
     return (
       <LineChart data={data} margin={{ top: 12, right: 20, left: 0, bottom: 18 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ead8c4" />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#54493f" }} interval={0} angle={data.length > 7 ? -25 : 0} textAnchor={data.length > 7 ? "end" : "middle"} height={data.length > 7 ? 62 : 36} />
-        <YAxis tick={{ fontSize: 11, fill: "#54493f" }} />
-        <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid #ead8c4" }} />
-        <Line type="monotone" dataKey="value" stroke="#c05314" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+        <XAxis dataKey="label" tick={tickStyle} interval={0} angle={data.length > 7 ? -25 : 0} textAnchor={data.length > 7 ? "end" : "middle"} height={data.length > 7 ? 62 : 36} />
+        <YAxis tick={tickStyle} />
+        <RechartsTooltip contentStyle={tooltipStyle} />
+        <Line type="monotone" dataKey="value" stroke={theme.palette.primary.main} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
       </LineChart>
     );
   }
@@ -131,15 +122,15 @@ function renderChartByVariant(data, variant) {
       <AreaChart data={data} margin={{ top: 12, right: 20, left: 0, bottom: 18 }}>
         <defs>
           <linearGradient id="dashboardArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#c05314" stopOpacity={0.75} />
-            <stop offset="95%" stopColor="#f58a3c" stopOpacity={0.08} />
+            <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.75} />
+            <stop offset="95%" stopColor={theme.palette.primary.light} stopOpacity={0.08} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ead8c4" />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#54493f" }} interval={0} angle={data.length > 7 ? -25 : 0} textAnchor={data.length > 7 ? "end" : "middle"} height={data.length > 7 ? 62 : 36} />
-        <YAxis tick={{ fontSize: 11, fill: "#54493f" }} />
-        <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid #ead8c4" }} />
-        <Area type="monotone" dataKey="value" stroke="#c05314" strokeWidth={2.5} fill="url(#dashboardArea)" />
+        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+        <XAxis dataKey="label" tick={tickStyle} interval={0} angle={data.length > 7 ? -25 : 0} textAnchor={data.length > 7 ? "end" : "middle"} height={data.length > 7 ? 62 : 36} />
+        <YAxis tick={tickStyle} />
+        <RechartsTooltip contentStyle={tooltipStyle} />
+        <Area type="monotone" dataKey="value" stroke={theme.palette.primary.main} strokeWidth={2.5} fill="url(#dashboardArea)" />
       </AreaChart>
     );
   }
@@ -148,28 +139,30 @@ function renderChartByVariant(data, variant) {
     return (
       <PieChart>
         <Pie data={data} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={110} innerRadius={45} paddingAngle={3}>
-          {data.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
+          {data.map((_, idx) => <Cell key={idx} fill={chartColors[idx % chartColors.length]} />)}
         </Pie>
         <Legend verticalAlign="bottom" height={36} />
-        <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid #ead8c4" }} />
+        <RechartsTooltip contentStyle={tooltipStyle} />
       </PieChart>
     );
   }
 
   return (
     <BarChart data={data} margin={{ top: 12, right: 20, left: 0, bottom: 18 }}>
-      <CartesianGrid strokeDasharray="3 3" stroke="#ead8c4" />
-      <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#54493f" }} interval={0} angle={data.length > 7 ? -25 : 0} textAnchor={data.length > 7 ? "end" : "middle"} height={data.length > 7 ? 62 : 36} />
-      <YAxis tick={{ fontSize: 11, fill: "#54493f" }} />
-      <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid #ead8c4" }} cursor={{ fill: "#f5c58a33" }} />
+      <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+      <XAxis dataKey="label" tick={tickStyle} interval={0} angle={data.length > 7 ? -25 : 0} textAnchor={data.length > 7 ? "end" : "middle"} height={data.length > 7 ? 62 : 36} />
+      <YAxis tick={tickStyle} />
+      <RechartsTooltip contentStyle={tooltipStyle} cursor={{ fill: alpha(theme.palette.primary.main, 0.12) }} />
       <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-        {data.map((_, idx) => <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
+        {data.map((_, idx) => <Cell key={idx} fill={chartColors[idx % chartColors.length]} />)}
       </Bar>
     </BarChart>
   );
 }
 
 function ChartWidget({ widget }) {
+  const theme = useTheme();
+
   if (widget.error) {
     return <Alert severity="warning">{widget.error}</Alert>;
   }
@@ -184,7 +177,7 @@ function ChartWidget({ widget }) {
   return (
     <Box sx={{ width: "100%", minWidth: 0, minHeight: 340, height: 340 }} role="img" aria-label={`${widget.title} ${variant} chart`}>
       <ResponsiveContainer width="100%" height="100%">
-        {renderChartByVariant(data, variant)}
+        {renderChartByVariant(data, variant, theme)}
       </ResponsiveContainer>
     </Box>
   );
@@ -273,16 +266,16 @@ function TableWidget({ widget, accessToken, actorRole, onRefresh }) {
   return (
     <Box>
       {rowError ? <Alert severity="error" sx={{ mb: 1.5 }}>{rowError}</Alert> : null}
-      <TableContainer sx={{ maxHeight: 420, overflowY: "auto", borderRadius: 2, border: "1px solid #ead8c4" }}>
+      <TableContainer sx={{ maxHeight: 420, overflowY: "auto", borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
         <Table size="small" stickyHeader aria-label={`${widget.title} table`}>
           <TableHead>
             <TableRow>
               {columns.map((col) => (
-                <TableCell key={col.label} sx={{ fontWeight: 700, bgcolor: "#fffaf3", fontSize: "0.72rem" }}>
+                <TableCell key={col.label} sx={{ fontWeight: 700, bgcolor: "brand.subtle", fontSize: "0.72rem" }}>
                   {col.label}
                 </TableCell>
               ))}
-              {canInlineEdit ? <TableCell sx={{ fontWeight: 700, bgcolor: "#fffaf3", width: 96 }}>Actions</TableCell> : null}
+              {canInlineEdit ? <TableCell sx={{ fontWeight: 700, bgcolor: "brand.subtle", width: 96 }}>Actions</TableCell> : null}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -356,7 +349,7 @@ function TableWidget({ widget, accessToken, actorRole, onRefresh }) {
 
 export function WidgetCardSkeleton() {
   return (
-    <Card sx={{ border: "1px solid #ead8c4", borderRadius: 3, height: "100%" }}>
+    <Card sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3, height: "100%" }}>
       <CardHeader title={<Skeleton width="55%" height={20} />} subheader={<Skeleton width="30%" height={14} />} />
       <CardContent>
         <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
@@ -369,10 +362,10 @@ function WidgetCard({ widget, canEdit = false, onEdit, onDelete, accessToken, ac
   const typeLabel = widget.type ? widget.type.charAt(0).toUpperCase() + widget.type.slice(1) : "";
 
   return (
-    <Card sx={{ border: "1px solid #ead8c4", borderRadius: 3, height: "100%", display: "flex", flexDirection: "column", background: "linear-gradient(180deg, #fffdf8 0%, #fff7ef 100%)" }}>
+    <Card sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3, height: "100%", display: "flex", flexDirection: "column", bgcolor: "background.paper" }}>
       <CardHeader
         title={<Typography variant="subtitle1" fontWeight={700} noWrap>{widget.title}</Typography>}
-        subheader={<Chip label={typeLabel} size="small" sx={{ bgcolor: "#f5ece0", color: "#7c3f17", fontWeight: 700, fontSize: "0.68rem", height: 18, mt: 0.25 }} />}
+        subheader={<Chip label={typeLabel} size="small" sx={{ bgcolor: "brand.subtle", color: "primary.dark", fontWeight: 700, fontSize: "0.68rem", height: 18, mt: 0.25 }} />}
         action={canEdit ? (
           <Stack direction="row" spacing={0.5}>
             <Tooltip title="Edit widget">

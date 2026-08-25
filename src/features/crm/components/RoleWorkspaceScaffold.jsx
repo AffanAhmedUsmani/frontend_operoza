@@ -31,14 +31,14 @@ function RoleWorkspaceScaffold({ title, subtitle, tabs, quickActions, kpiCards, 
 
   return (
     <Stack spacing={3}>
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={1}>
             <Typography variant="h5">{title}</Typography>
             <Typography color="text.secondary">{subtitle}</Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ pt: 1 }}>
               {quickActions.map((actionLabel) => (
-                <Button key={actionLabel} variant="outlined" size="small" sx={{ borderColor: "#c87941", color: "#7c3f17" }}>
+                <Button key={actionLabel} variant="outlined" size="small" sx={{ borderColor: "primary.light", color: "primary.dark" }}>
                   {actionLabel}
                 </Button>
               ))}
@@ -50,7 +50,7 @@ function RoleWorkspaceScaffold({ title, subtitle, tabs, quickActions, kpiCards, 
       <Tabs
         value={activeTab}
         onChange={(_, value) => setActiveTab(value)}
-        sx={{ borderBottom: "1px solid #ead8c4" }}
+        sx={{ borderBottom: "1px solid", borderBottomColor: "divider" }}
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
@@ -63,7 +63,7 @@ function RoleWorkspaceScaffold({ title, subtitle, tabs, quickActions, kpiCards, 
       <Grid container spacing={2}>
         {kpiCards.map((card) => (
           <Grid item xs={12} sm={6} md={4} key={card.title}>
-            <Card sx={{ border: "1px solid #ead8c4", height: "100%" }}>
+            <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
               <CardContent>
                 <Stack spacing={1}>
                   <Typography variant="body2" color="text.secondary">{card.title}</Typography>
@@ -76,7 +76,7 @@ function RoleWorkspaceScaffold({ title, subtitle, tabs, quickActions, kpiCards, 
         ))}
       </Grid>
 
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Typography variant="h6" sx={{ mb: 1 }}>{safeTabs[activeTab]} Focus</Typography>
           <Typography color="text.secondary">

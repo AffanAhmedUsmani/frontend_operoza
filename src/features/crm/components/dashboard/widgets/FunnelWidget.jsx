@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MdTrendingDown } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 
 /**
  * FunnelWidget — Shows conversion pipeline with drop-off percentages.
@@ -20,6 +21,7 @@ import { MdTrendingDown } from "react-icons/md";
  * Single responsibility: render funnel data only.
  */
 export function FunnelWidget({ widget }) {
+  const theme = useTheme();
   if (widget.error) {
     return <Alert severity="warning" sx={{ mt: 1 }}>{widget.error}</Alert>;
   }
@@ -47,10 +49,10 @@ export function FunnelWidget({ widget }) {
       </Box>
 
       {/* Primacy: show top stage first; recency: highlight last stage */}
-      <TableContainer sx={{ borderRadius: 1, border: "1px solid #ead8c4" }}>
+      <TableContainer sx={{ borderRadius: 1, border: "1px solid", borderColor: "divider" }}>
         <Table size="small" aria-label="Conversion funnel stages">
           <TableHead>
-            <TableRow sx={{ bgcolor: "#fffaf3" }}>
+            <TableRow sx={{ bgcolor: "brand.subtle" }}>
               <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem" }}>#</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Stage</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Count</TableCell>
@@ -59,7 +61,7 @@ export function FunnelWidget({ widget }) {
           </TableHead>
           <TableBody>
             {stageRows.map((stage) => (
-              <TableRow key={stage.stage} hover sx={{ "&:last-child td": { borderBottom: "2px solid #c05314" } }}>
+              <TableRow key={stage.stage} hover sx={{ "&:last-child td": { borderBottom: "2px solid", borderBottomColor: "primary.main" } }}>
                 <TableCell sx={{ fontSize: "0.78rem", color: "text.secondary" }}>{stage.rank}</TableCell>
                 <TableCell sx={{ fontSize: "0.78rem", fontWeight: 500 }}>{stage.stage}</TableCell>
                 <TableCell align="right" sx={{ fontSize: "0.78rem", fontWeight: 700, color: "primary.main" }}>
@@ -73,10 +75,10 @@ export function FunnelWidget({ widget }) {
                       sx={{
                         height: 6,
                         borderRadius: 3,
-                        bgcolor: "#f5ece0",
+                        bgcolor: "brand.subtle",
                         "& .MuiLinearProgress-bar": {
                           borderRadius: 3,
-                          background: "linear-gradient(90deg, #c05314 0%, #f58a3c 100%)",
+                          background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
                         },
                       }}
                       aria-label={`${stage.stage} progress: ${stage.percentage}%`}
@@ -95,7 +97,7 @@ export function FunnelWidget({ widget }) {
       {/* Optional: drop-off indicator (recency cue) */}
       {stageRows.length > 1 && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, pt: 1 }}>
-          <MdTrendingDown size={14} color="#d32f2f" />
+          <MdTrendingDown size={14} color={theme.palette.error.main} />
           <Typography variant="caption" color="error.main" sx={{ fontWeight: 500 }}>
             Drop-off: {(
               ((stageRows[0].count - stageRows[stageRows.length - 1].count) / stageRows[0].count * 100) || 0

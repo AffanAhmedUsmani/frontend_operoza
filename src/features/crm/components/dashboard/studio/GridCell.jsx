@@ -51,8 +51,8 @@ function GridCell({
         sx={{
           gridColumn: `span ${widget.gridSpan || 1}`,
           gridRow: `span ${widget.gridRowSpan || 1}`,
-          bgcolor: "#ffebee",
-          border: "1px dashed #ef5350",
+          bgcolor: "error.light",
+          border: "1px dashed", borderColor: "error.main",
           borderRadius: 1,
           p: 2,
           textAlign: "center",
@@ -74,9 +74,9 @@ function GridCell({
         gridColumn: `span ${Math.min(widget.gridSpan || 1, 3)}`,
         gridRow: `span ${Math.min(widget.gridRowSpan || 1, 4)}`,
         cursor: "pointer",
-        border: isSelected ? "2px solid" : "1px solid #ead8c4",
-        borderColor: isSelected ? "primary.main" : "#ead8c4",
-        bgcolor: isDragSource ? "action.hover" : isSelected ? "action.selected" : "#faf6f0",
+        border: isSelected ? "2px solid" : "1px solid",
+        borderColor: isSelected ? "primary.main" : "divider",
+        bgcolor: isDragSource ? "action.hover" : isSelected ? "action.selected" : "brand.subtle",
         transition: "all 0.2s ease",
         "&:hover": {
           boxShadow: 3,
@@ -92,7 +92,8 @@ function GridCell({
         sx={{
           p: 1.5,
           pb: 1,
-          borderBottom: "1px solid #ead8c4",
+          borderBottom: "1px solid",
+          borderBottomColor: "divider",
           display: "flex",
           alignItems: "center",
         }}
@@ -103,7 +104,7 @@ function GridCell({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#999",
+              color: "text.disabled",
               cursor: "grab",
               "&:active": { cursor: "grabbing" },
             }}
@@ -126,8 +127,8 @@ function GridCell({
               size="small"
               icon={<span>{meta.icon}</span>}
               sx={{
-                bgcolor: "#f5ece0",
-                color: "#7c3f17",
+                bgcolor: "brand.subtle",
+                color: "primary.dark",
                 fontWeight: 700,
                 fontSize: "0.65rem",
                 width: "fit-content",
@@ -161,7 +162,7 @@ function GridCell({
           alignItems: "center",
           minHeight: 120,
           p: 2,
-          color: "#999",
+          color: "text.disabled",
           fontSize: "0.875rem",
         }}
       >
@@ -198,13 +199,14 @@ function GridCell({
       <Box
         sx={{
           p: 1,
-          bgcolor: "#f5ece0",
-          borderTop: "1px solid #ead8c4",
+          bgcolor: "brand.subtle",
+          borderTop: "1px solid",
+          borderTopColor: "divider",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           fontSize: "0.7rem",
-          color: "#999",
+          color: "text.disabled",
         }}
       >
         <span>

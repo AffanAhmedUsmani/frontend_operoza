@@ -7,6 +7,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { MdTrendingUp } from "react-icons/md";
 import { fetchCampaignStats } from "../../services/campaignService";
 
@@ -17,6 +18,7 @@ const PERIODS = [
 ];
 
 export default function CampaignSalesWidget({ campaignId, accessToken }) {
+  const theme = useTheme();
   const [period, setPeriod] = useState("all");
   const [totals, setTotals] = useState({ all: null, day: null, month: null });
   const [loading, setLoading] = useState(false);
@@ -48,7 +50,7 @@ export default function CampaignSalesWidget({ campaignId, accessToken }) {
   return (
     <Stack spacing={0.5}>
       <Stack direction="row" alignItems="center" spacing={0.5}>
-        <MdTrendingUp size={14} color="#c87941" />
+        <MdTrendingUp size={14} color={theme.palette.primary.light} />
         <Typography variant="caption" color="text.secondary" fontWeight={600}>
           Sales
         </Typography>
@@ -71,8 +73,8 @@ export default function CampaignSalesWidget({ campaignId, accessToken }) {
               variant={period === p.value ? "contained" : "outlined"}
               sx={
                 period === p.value
-                  ? { bgcolor: "#c87941", borderColor: "#c87941", color: "#fff", "&:hover": { bgcolor: "#a8692f" } }
-                  : { borderColor: "#e0c9b3", color: "#7c3f17" }
+                  ? { bgcolor: "primary.light", borderColor: "primary.light", color: "primary.contrastText", "&:hover": { bgcolor: "primary.main" } }
+                  : { borderColor: "divider", color: "primary.dark" }
               }
             >
               {p.label}

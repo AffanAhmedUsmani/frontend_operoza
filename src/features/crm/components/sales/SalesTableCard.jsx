@@ -15,7 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import { MdDelete, MdEdit, MdInsights, MdVisibility } from "react-icons/md";
+import { MdDelete, MdEdit, MdEventNote, MdInsights, MdVisibility } from "react-icons/md";
 import { normalizeRole, SALES_MANAGER_ROLES } from "./salesFormUtils";
 
 export default function SalesTableCard({
@@ -28,6 +28,7 @@ export default function SalesTableCard({
   onOpenView,
   onOpenEdit,
   onDelete,
+  onCreateFollowUp,
 }) {
   const normalizedRole = normalizeRole(actorRole || "");
   const canManage = SALES_MANAGER_ROLES.has(normalizedRole);
@@ -44,7 +45,7 @@ export default function SalesTableCard({
   const visibleSales = sales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Card sx={{ border: "1px solid #ead8c4" }}>
+    <Card sx={{ border: "1px solid", borderColor: "divider" }}>
       <CardContent sx={{ p: 0 }}>
         {loading ? (
           <Box sx={{ p: 3 }}><Typography color="text.secondary">Loading sales...</Typography></Box>
@@ -64,6 +65,7 @@ export default function SalesTableCard({
                     <TableCell align="center">Analysis</TableCell>
                     {canEditSales ? <TableCell align="center">Edit</TableCell> : null}
                     {canDeleteSales ? <TableCell align="center">Delete</TableCell> : null}
+                    <TableCell align="center">Follow-Up</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -72,7 +74,9 @@ export default function SalesTableCard({
                       <TableCell>{sale.campaign_name || "-"}</TableCell>
                       {showAgentColumn ? (
                         <TableCell>
-                          {users.find((u) => String(u.user_id) === String(sale.agent_user_id))?.display_name ?? sale.agent_user_id}
+                          {users.find((u) => String(u.user_id) === String(sale.agent_user_id))?.display_name
+                            || sale.agent_display_name
+                            || "Unknown Agent"}
                         </TableCell>
                       ) : null}
                       <TableCell><Chip size="small" label={sale.status_code} /></TableCell>
@@ -111,6 +115,15 @@ export default function SalesTableCard({
                           </Tooltip>
                         </TableCell>
                       ) : null}
+                      <TableCell align="center">
+                        {sale.campaign_follow_up_enabled ? (
+                          <Tooltip title="Create Follow-Up">
+                            <IconButton size="small" color="primary" onClick={() => onCreateFollowUp(sale)}>
+                              <MdEventNote />
+                            </IconButton>
+                          </Tooltip>
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

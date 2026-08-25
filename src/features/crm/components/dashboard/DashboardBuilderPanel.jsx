@@ -9,6 +9,8 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  MenuItem,
+  Select,
   Stack,
   Tab,
   Tabs,
@@ -17,7 +19,17 @@ import {
   Typography,
 } from "@mui/material";
 import { MdDelete, MdEdit } from "react-icons/md";
-import { createWidget, fetchDashboardDetail, updateWidget } from "../../services/dashboardService";
+import {
+  applyWidgetPreset,
+  clearDashboardDraft,
+  createWidget,
+  fetchDashboardDetail,
+  fetchDashboardDraft,
+  fetchWidgetPresets,
+  saveDashboardDraft,
+  saveWidgetPreset,
+  updateWidget,
+} from "../../services/dashboardService";
 import DashboardViewer from "./DashboardViewer";
 import DashboardStudio from "./studio/DashboardStudio";
 
@@ -58,6 +70,60 @@ function toWidgetPosition(widget) {
 function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, onRenamed, onDelete, updateDashboard }) {
   const [tab, setTab] = useState(0);
   const [widgets, setWidgets] = useState([]);
+  const [pendingDraft, setPendingDraft] = useState(null); // { draft_json, draft_saved_at }
+  const [studioInitialWidgets, setStudioInitialWidgets] = useState([]);
+
+  // Sprint 19 (docs/SPRINT_PLAN.md) - saved/reusable widget presets.
+  const [presets, setPresets] = useState([]);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [applyingPreset, setApplyingPreset] = useState(false);
+  const [presetError, setPresetError] = useState("");
+  const [savePresetOpen, setSavePresetOpen] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [savingPreset, setSavingPreset] = useState(false);
+
+  const loadPresets = useCallback(async () => {
+    try {
+      setPresets(await fetchWidgetPresets(accessToken));
+    } catch (_) {
+      // non-critical - the studio still works without presets
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    loadPresets();
+  }, [loadPresets]);
+
+  const handleSavePreset = async () => {
+    const name = presetName.trim();
+    if (!name) return;
+    setSavingPreset(true);
+    setPresetError("");
+    try {
+      await saveWidgetPreset(accessToken, { dashboardId: dashboard.dashboard_id, name });
+      setSavePresetOpen(false);
+      setPresetName("");
+      await loadPresets();
+    } catch (err) {
+      setPresetError(err.message || "Failed to save preset.");
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
+  const handleApplyPreset = async () => {
+    if (!selectedPresetId) return;
+    setApplyingPreset(true);
+    setPresetError("");
+    try {
+      await applyWidgetPreset(accessToken, dashboard.dashboard_id, selectedPresetId);
+      await refreshWidgets();
+    } catch (err) {
+      setPresetError(err.message || "Failed to apply preset.");
+    } finally {
+      setApplyingPreset(false);
+    }
+  };
 
   // Rename state
   const [renameOpen, setRenameOpen] = useState(false);
@@ -76,10 +142,12 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
         ? detail.widgets.map(normalizeStudioWidget)
         : [];
       setWidgets(normalizedWidgets);
+      setStudioInitialWidgets(normalizedWidgets);
       return normalizedWidgets;
     } catch (_) {
       // non-critical — viewer will still show via the data endpoint
       setWidgets([]);
+      setStudioInitialWidgets([]);
       return [];
     }
   }, [accessToken, dashboard.dashboard_id]);
@@ -90,6 +158,35 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
     refreshWidgets();
   }, [refreshWidgets]);
 
+  // Sprint 19 (docs/SPRINT_PLAN.md) - check for a pending draft once, on
+  // mount, so a tenant reopening this dashboard's Studio Builder is
+  // offered their unpublished work back rather than silently losing it.
+  useEffect(() => {
+    let cancelled = false;
+    fetchDashboardDraft(accessToken, dashboard.dashboard_id)
+      .then((draft) => {
+        if (!cancelled && draft?.draft_json) setPendingDraft(draft);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, dashboard.dashboard_id]);
+
+  const handleRestoreDraft = () => {
+    setStudioInitialWidgets(pendingDraft.draft_json.map(normalizeStudioWidget));
+    setPendingDraft(null);
+  };
+
+  const handleDiscardDraft = async () => {
+    setPendingDraft(null);
+    try {
+      await clearDashboardDraft(accessToken, dashboard.dashboard_id);
+    } catch (_) {
+      // non-critical - the banner is already dismissed either way
+    }
+  };
+
   // ── Rename ──────────────────────────────────────────────────────────────────
 
   const handleRename = async () => {
@@ -98,7 +195,7 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
     setRenaming(true);
     setRenameError(null);
     try {
-      const updated = await updateDashboard(dashboard.dashboard_id, { name });
+      const updated = await updateDashboard(accessToken, dashboard.dashboard_id, { name });
       onRenamed?.(updated);
       setRenameOpen(false);
     } catch (err) {
@@ -149,7 +246,7 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
-        sx={{ borderBottom: "1px solid #ead8c4" }}
+        sx={{ borderBottom: "1px solid", borderBottomColor: "divider" }}
         aria-label="Dashboard sections"
       >
         <Tab label="Live View" id="tab-view" aria-controls="tabpanel-view" />
@@ -171,11 +268,60 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
       {/* Studio Builder tab - drag-drop interface */}
       {tab === 1 && (
         <Box role="tabpanel" id="tabpanel-studio" aria-labelledby="tab-studio">
+          {/* Widget presets (Sprint 19 - docs/SPRINT_PLAN.md) */}
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+            <Button size="small" variant="outlined" onClick={() => setSavePresetOpen(true)}>
+              Save as Preset
+            </Button>
+            {presets.length > 0 ? (
+              <>
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={selectedPresetId}
+                  onChange={(e) => setSelectedPresetId(e.target.value)}
+                  sx={{ minWidth: 220 }}
+                >
+                  <MenuItem value="">
+                    <em>Apply a saved combination…</em>
+                  </MenuItem>
+                  {presets.map((preset) => (
+                    <MenuItem key={preset.preset_id} value={preset.preset_id}>
+                      {preset.name} ({preset.widget_count} widgets)
+                    </MenuItem>
+                  ))}
+                </Select>
+                <Button size="small" onClick={handleApplyPreset} disabled={!selectedPresetId || applyingPreset}>
+                  {applyingPreset ? "Applying…" : "Apply"}
+                </Button>
+              </>
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                No saved combinations yet - build a dashboard, then "Save as Preset" to reuse it elsewhere.
+              </Typography>
+            )}
+          </Stack>
+          {presetError ? <Alert severity="error" sx={{ mb: 1.5 }}>{presetError}</Alert> : null}
+
+          {pendingDraft ? (
+            <Alert
+              severity="info"
+              sx={{ mb: 2 }}
+              action={
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" onClick={handleRestoreDraft}>Restore</Button>
+                  <Button size="small" color="inherit" onClick={handleDiscardDraft}>Discard</Button>
+                </Stack>
+              }
+            >
+              You have an unpublished draft from {new Date(pendingDraft.draft_saved_at).toLocaleString()}.
+            </Alert>
+          ) : null}
           <DashboardStudio
             dashboardId={dashboard.dashboard_id}
             dashboardName={dashboard.name}
             campaign={campaign}
-            initialWidgets={widgets}
+            initialWidgets={studioInitialWidgets}
             onSave={async (updatedWidgets) => {
               // Save all widgets to backend, preserving widget layout in position JSON.
               for (const widget of updatedWidgets) {
@@ -197,15 +343,15 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
                   });
                 }
               }
+              // Publishing supersedes any pending draft - clear it so a
+              // stale "you have an unpublished draft" banner doesn't
+              // reappear for widgets that are now actually live.
+              await clearDashboardDraft(accessToken, dashboard.dashboard_id).catch(() => {});
+              setPendingDraft(null);
               await refreshWidgets();
             }}
-            onSaveDraft={async (draftWidgets, draftState) => {
-              // Save draft as a local note for now (could extend to backend)
-              localStorage.setItem(
-                `dashboard-draft-${dashboard.dashboard_id}`,
-                JSON.stringify({ widgets: draftWidgets, ...draftState })
-              );
-              alert("Draft saved locally. Changes are not yet published.");
+            onSaveDraft={async (draftWidgets) => {
+              await saveDashboardDraft(accessToken, dashboard.dashboard_id, draftWidgets);
             }}
             onCancel={() => setTab(0)}
           />
@@ -244,6 +390,33 @@ function DashboardBuilderPanel({ accessToken, dashboard, campaign, actorRole, on
             disabled={!renameValue.trim() || renaming}
           >
             {renaming ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Save widget preset dialog (Sprint 19 - docs/SPRINT_PLAN.md) */}
+      <Dialog open={savePresetOpen} onClose={() => setSavePresetOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Save as Preset</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Saves this dashboard's current published widgets as a reusable combination you can
+              apply to any dashboard.
+            </Typography>
+            {presetError ? <Alert severity="error">{presetError}</Alert> : null}
+            <TextField
+              label="Preset name"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              fullWidth
+              autoFocus
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSavePresetOpen(false)} disabled={savingPreset}>Cancel</Button>
+          <Button variant="contained" onClick={handleSavePreset} disabled={!presetName.trim() || savingPreset}>
+            {savingPreset ? "Saving…" : "Save"}
           </Button>
         </DialogActions>
       </Dialog>

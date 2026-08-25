@@ -12,10 +12,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { MdAudiotrack, MdCheckCircle, MdLock } from "react-icons/md";
+import { MdAudiotrack, MdCancel, MdCheckCircle, MdLock, MdPending } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 
 /** Renders a single dynamic schema field in the sale editor. */
-function renderField(field, value, readOnly, onUpdatePayload, form, editingSale, audioFiles, onAudioFileChange) {
+function renderField(field, value, readOnly, onUpdatePayload, form, editingSale, audioFiles, onAudioFileChange, theme) {
   if (field.type === "textarea") {
     return (
       <TextField
@@ -87,6 +88,12 @@ function renderField(field, value, readOnly, onUpdatePayload, form, editingSale,
     const existingUrl = form.payload_json?.[field.key];
     const analysisEntry = editingSale?.audio_analysis_json?.[field.key];
     const isLocked = analysisEntry?.locked;
+    // Sprint 14 (docs/SPRINT_PLAN.md): `locked` is set true immediately on
+    // upload (it blocks re-upload), before analysis has actually run - it no
+    // longer means "analyzed". `status` reflects real progress; entries
+    // from before this sprint have no `status` key, so a locked entry with
+    // no status is treated as the legacy "completed" case.
+    const analysisStatus = analysisEntry?.status ?? (isLocked ? "completed" : null);
     const pendingFile = audioFiles?.[field.key];
 
     return (
@@ -100,17 +107,41 @@ function renderField(field, value, readOnly, onUpdatePayload, form, editingSale,
             <Typography variant="body2" fontWeight={500}>
               {field.label}{field.required ? " *" : ""}
             </Typography>
-            {isLocked && (
+            {analysisStatus === "failed" && (
+              <Chip size="small" color="error" icon={<MdCancel size={12} />} label="Analysis failed" />
+            )}
+            {analysisStatus === "pending" && (
+              <Chip size="small" color="warning" icon={<MdPending size={12} />} label="Analysis pending" />
+            )}
+            {analysisStatus === "completed" && (
               <Chip size="small" color="success" icon={<MdLock size={12} />} label="Analysis locked" />
             )}
           </Stack>
 
           {isLocked ? (
             <Stack direction="row" spacing={1} alignItems="center">
-              <MdCheckCircle color="green" />
-              <Typography variant="caption" color="text.secondary">
-                Audio already analyzed. Click the AI Analysis button to view results.
-              </Typography>
+              {analysisStatus === "failed" ? (
+                <>
+                  <MdCancel color={theme.palette.error.main} />
+                  <Typography variant="caption" color="text.secondary">
+                    Analysis failed{analysisEntry?.error ? `: ${analysisEntry.error}` : "."}
+                  </Typography>
+                </>
+              ) : analysisStatus === "pending" ? (
+                <>
+                  <MdPending color={theme.palette.warning.main} />
+                  <Typography variant="caption" color="text.secondary">
+                    Audio uploaded - analysis is processing, check back shortly.
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <MdCheckCircle color={theme.palette.success.main} />
+                  <Typography variant="caption" color="text.secondary">
+                    Audio already analyzed. Click the AI Analysis button to view results.
+                  </Typography>
+                </>
+              )}
               {existingUrl && (
                 <Typography component="a" href={existingUrl} target="_blank" variant="caption" color="primary">
                   Listen
@@ -201,6 +232,7 @@ export default function SaleEditorDialog({
   onSetAgent,
   onUpdatePayload,
 }) {
+  const theme = useTheme();
   const title = readOnly ? "View Sale" : editingSale ? "Edit Sale" : "Create Sale";
 
   return (
@@ -251,6 +283,7 @@ export default function SaleEditorDialog({
                 editingSale,
                 audioFiles,
                 onAudioFileChange,
+                theme,
               )
             )
           )}

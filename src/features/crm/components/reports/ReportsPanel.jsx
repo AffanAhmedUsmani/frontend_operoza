@@ -35,6 +35,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
   const accessToken = tokenProp || session?.accessToken;
   const actorRole = resolveActorContext(accessToken).role;
   const canCreate = CREATE_ROLES.has(actorRole);
+  const canManageReport = actorRole === "admin";
 
   const [reports, setReports] = useState([]);
   const [users, setUsers] = useState([]);
@@ -125,7 +126,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
   }, [loadReports]);
 
   const handleDelete = async (report) => {
-    if (!report?.report_id || !canCreate) return;
+    if (!report?.report_id || !canManageReport) return;
     if (!window.confirm(`Delete report \"${report.name || "Untitled"}\"?`)) return;
     try {
       await deleteReport(accessToken, report.report_id);
@@ -169,7 +170,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
   if (viewerOpen && selected) {
     return (
       <Stack spacing={2} sx={{ width: "100%" }}>
-        <Card sx={{ border: "1px solid #ead8c4" }}>
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }}>
               <Box>
@@ -192,7 +193,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
 
   return (
     <Stack spacing={2}>
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }}>
             <Box>
@@ -243,7 +244,8 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
             <Card
               key={report.report_id}
               sx={{
-                border: isSelected ? "2px solid #c87941" : "1px solid #ead8c4",
+                border: isSelected ? "2px solid" : "1px solid",
+                borderColor: isSelected ? "primary.light" : "divider",
                 cursor: "pointer",
               }}
               onClick={() => {
@@ -277,7 +279,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
                         Edit
                       </Button>
                     ) : null}
-                    {canCreate ? (
+                    {canManageReport ? (
                       <Button size="small" startIcon={<MdAssignmentInd />} onClick={(event) => {
                         event.stopPropagation();
                         setSelected(report);
@@ -294,7 +296,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
                     }} disabled={!canExport}>
                       Export
                     </Button>
-                    {canCreate ? (
+                    {canManageReport ? (
                       <Button size="small" color="error" onClick={(event) => {
                         event.stopPropagation();
                         handleDelete(report);
@@ -311,7 +313,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
       </Stack>
 
       {!loading && sortedReports.length === 0 ? (
-        <Card sx={{ border: "1px solid #ead8c4" }}>
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
             <Typography color="text.secondary">No reports available for this role.</Typography>
           </CardContent>
@@ -329,7 +331,7 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
       />
 
       <ReportAssignmentDialog
-        open={assignmentOpen}
+        open={assignmentOpen && canManageReport}
         onClose={() => setAssignmentOpen(false)}
         onAssigned={loadReports}
         accessToken={accessToken}

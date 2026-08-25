@@ -149,7 +149,7 @@ export default function CampaignFieldsModal({ open, campaign, accessToken, onSav
               size="small"
               startIcon={<MdAdd />}
               onClick={handleAddField}
-              sx={{ borderColor: "#c87941", color: "#7c3f17" }}
+              sx={{ borderColor: "primary.light", color: "primary.dark" }}
             >
               Add Field
             </Button>
@@ -160,7 +160,7 @@ export default function CampaignFieldsModal({ open, campaign, accessToken, onSav
           {fields.length === 0 ? (
             <Box
               sx={{
-                border: "2px dashed #e0d0c0",
+                border: "2px dashed", borderColor: "divider",
                 borderRadius: 2,
                 p: 4,
                 textAlign: "center",
@@ -173,7 +173,7 @@ export default function CampaignFieldsModal({ open, campaign, accessToken, onSav
           ) : (
             <Stack spacing={1}>
               {fields.map((field, index) => (
-                <Card key={field.key} variant="outlined" sx={{ borderColor: "#e8d8c8" }}>
+                <Card key={field.key} variant="outlined" sx={{ borderColor: "divider" }}>
                   <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                     <Stack
                       direction={{ xs: "column", sm: "row" }}

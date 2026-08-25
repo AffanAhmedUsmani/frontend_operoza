@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { MdAdd, MdClose, MdDelete, MdSave } from "react-icons/md";
 import { getWidgetByType } from "./widgetLibrary";
+import { validateSafeExpression } from "../safeExpressionEvaluator";
 
 const DEFAULT_SALE_FIELDS = [
   "sale.sale_id",
@@ -56,52 +57,6 @@ function splitTableColumns(columns) {
   return { baseColumns, computedColumns };
 }
 
-function getRowValue(row, ref) {
-  if (!row || !ref) {
-    return undefined;
-  }
-
-  return String(ref)
-    .split(".")
-    .reduce((value, key) => (value && typeof value === "object" ? value[key] : undefined), row);
-}
-
-function buildComputedValue(expression, row) {
-  const trimmed = String(expression || "").trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  const transformed = trimmed.replace(/\b([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w+)+)\b/g, (match) => {
-    return `get(${JSON.stringify(match)})`;
-  });
-
-  try {
-    const evaluator = new Function(
-      "get",
-      "concat",
-      "num",
-      "round",
-      "abs",
-      `return (${transformed});`
-    );
-    const result = evaluator(
-      (ref) => getRowValue(row, ref),
-      (...parts) => parts.filter((part) => part !== null && part !== undefined).map((part) => String(part)).join(""),
-      (value) => Number(value || 0),
-      Math.round,
-      Math.abs
-    );
-
-    if (result === null || result === undefined || result === "") {
-      return "";
-    }
-    return result;
-  } catch (_) {
-    return "";
-  }
-}
-
 /**
  * PropertiesPanel — Right sidebar: edit selected widget properties
  *
@@ -123,6 +78,7 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
   const [columnToAdd, setColumnToAdd] = useState("");
   const [newComputedLabel, setNewComputedLabel] = useState("");
   const [newComputedExpression, setNewComputedExpression] = useState("");
+  const [computedExpressionError, setComputedExpressionError] = useState("");
   const [configError, setConfigError] = useState(null);
 
   const meta = widget ? getWidgetByType(widget.type) : null;
@@ -228,9 +184,16 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
       return;
     }
 
+    const { valid, error } = validateSafeExpression(expression);
+    if (!valid) {
+      setComputedExpressionError(error);
+      return;
+    }
+
     setComputedColumns((prev) => [...prev, { label, expression }]);
     setNewComputedLabel("");
     setNewComputedExpression("");
+    setComputedExpressionError("");
   };
 
   const updateComputedColumn = (index, field, value) => {
@@ -248,8 +211,8 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
           width: 320,
           maxHeight: "70vh",
           overflow: "auto",
-          bgcolor: "#faf6f0",
-          border: "1px solid #ead8c4",
+          bgcolor: "brand.subtle",
+          border: "1px solid", borderColor: "divider",
           borderRadius: 2,
           display: "flex",
           flexDirection: "column",
@@ -274,20 +237,20 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
         width: 320,
         maxHeight: "70vh",
         overflow: "auto",
-        bgcolor: "#faf6f0",
-        border: "1px solid #ead8c4",
+        bgcolor: "brand.subtle",
+        border: "1px solid", borderColor: "divider",
         borderRadius: 2,
         display: "flex",
         flexDirection: "column",
       }}
     >
-      <Box sx={{ p: 2, bgcolor: "#f5ece0", borderBottom: "1px solid #ead8c4" }}>
+      <Box sx={{ p: 2, bgcolor: "brand.subtle", borderBottom: "1px solid", borderBottomColor: "divider" }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Typography sx={{ fontSize: "1.25rem" }}>{meta.icon}</Typography>
           <Typography variant="subtitle2" fontWeight={700} sx={{ flexGrow: 1 }}>
             {meta.name}
           </Typography>
-          <Button size="small" onClick={onClose} startIcon={<MdClose />} sx={{ color: "#999" }}>
+          <Button size="small" onClick={onClose} startIcon={<MdClose />} sx={{ color: "text.disabled" }}>
             ×
           </Button>
         </Stack>
@@ -357,7 +320,7 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
                       label={column}
                       onDelete={() => removeColumn(column)}
                       deleteIcon={<MdClose />}
-                      sx={{ bgcolor: "#fff7ef", border: "1px solid #ead8c4" }}
+                      sx={{ bgcolor: "brand.subtle", border: "1px solid", borderColor: "divider" }}
                     />
                   ))
                 )}
@@ -381,7 +344,7 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
                   </Typography>
                 ) : (
                   computedColumns.map((column, index) => (
-                    <Box key={`${column.label}-${index}`} sx={{ border: "1px solid #ead8c4", borderRadius: 1.5, p: 1 }}>
+                    <Box key={`${column.label}-${index}`} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1.5, p: 1 }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                         <Typography variant="caption" fontWeight={700} color="text.secondary">
                           Column {index + 1}
@@ -413,7 +376,7 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
                   ))
                 )}
 
-                <Box sx={{ border: "1px dashed #ead8c4", borderRadius: 1.5, p: 1.5 }}>
+                <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 1.5, p: 1.5 }}>
                   <Stack spacing={1}>
                     <Typography variant="caption" fontWeight={700} color="text.secondary">
                       Add calculated column
@@ -430,11 +393,16 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
                       label="Expression"
                       size="small"
                       value={newComputedExpression}
-                      onChange={(e) => setNewComputedExpression(e.target.value)}
+                      onChange={(e) => {
+                        setNewComputedExpression(e.target.value);
+                        if (computedExpressionError) setComputedExpressionError("");
+                      }}
                       fullWidth
                       multiline
                       minRows={2}
                       placeholder='sale.amount - payload.discount or concat(payload.first_name, " ", payload.last_name)'
+                      error={Boolean(computedExpressionError)}
+                      helperText={computedExpressionError || " "}
                     />
                     <Button
                       variant="outlined"
@@ -518,7 +486,7 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
           </Stack>
         </Box>
 
-        <Box sx={{ bgcolor: "#f5ece0", p: 1, borderRadius: 1 }}>
+        <Box sx={{ bgcolor: "brand.subtle", p: 1, borderRadius: 1 }}>
           <Typography variant="caption" color="text.secondary" display="block">
             <strong>Type:</strong> {widget.type}
           </Typography>
@@ -531,7 +499,7 @@ function PropertiesPanel({ widget, campaign = null, onUpdate, onClose }) {
         </Box>
       </Stack>
 
-      <Box sx={{ p: 2, bgcolor: "#f5ece0", borderTop: "1px solid #ead8c4" }}>
+      <Box sx={{ p: 2, bgcolor: "brand.subtle", borderTop: "1px solid", borderTopColor: "divider" }}>
         <Button
           fullWidth
           variant="contained"

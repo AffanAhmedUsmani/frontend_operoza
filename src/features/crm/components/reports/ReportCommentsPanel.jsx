@@ -62,7 +62,7 @@ export default function ReportCommentsPanel({ accessToken, reportId, canComment 
   };
 
   return (
-    <Card sx={{ border: "1px solid #ead8c4" }}>
+    <Card sx={{ border: "1px solid", borderColor: "divider" }}>
       <CardContent>
         <Stack spacing={2}>
           <Typography variant="h6">Comments</Typography>
@@ -102,7 +102,7 @@ export default function ReportCommentsPanel({ accessToken, reportId, canComment 
 
           <Stack spacing={1.5}>
             {items.map((item) => (
-              <Box key={item.report_comment_id} sx={{ p: 1.5, border: "1px solid #f0e5da", borderRadius: 1 }}>
+              <Box key={item.report_comment_id} sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {item.author_display_name || item.author_email || "Unknown user"}
                 </Typography>

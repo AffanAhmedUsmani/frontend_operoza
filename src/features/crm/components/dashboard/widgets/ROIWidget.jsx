@@ -26,18 +26,20 @@ function ROIWidget({ widget }) {
   const profit = parseFloat(widget.profit || 0);
   const roiPercent = widget.roi_percent || 0;
 
+  const currencyCode = widget.currency_code || "USD";
+
   // Format as currency
   const formatCurrency = (val) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currencyCode,
       maximumFractionDigits: 2,
     }).format(val);
   };
 
-  const revenueFormatted = useMemo(() => formatCurrency(revenue), [revenue]);
-  const costFormatted = useMemo(() => formatCurrency(cost), [cost]);
-  const profitFormatted = useMemo(() => formatCurrency(profit), [profit]);
+  const revenueFormatted = useMemo(() => formatCurrency(revenue), [revenue, currencyCode]);
+  const costFormatted = useMemo(() => formatCurrency(cost), [cost, currencyCode]);
+  const profitFormatted = useMemo(() => formatCurrency(profit), [profit, currencyCode]);
 
   // ROI interpretation
   const roiColor =
@@ -81,10 +83,10 @@ function ROIWidget({ widget }) {
               borderRadius: 3,
               background:
                 roiPercent > 100
-                  ? "linear-gradient(90deg, #2e7d32 0%, #66bb6a 100%)"
+                  ? `linear-gradient(90deg, ${theme.palette.success.main} 0%, ${theme.palette.success.light} 100%)`
                   : roiPercent > 0
-                  ? "linear-gradient(90deg, #0f8a7a 0%, #45b8ab 100%)"
-                  : "linear-gradient(90deg, #d32f2f 0%, #ef5350 100%)",
+                  ? `linear-gradient(90deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.light} 100%)`
+                  : `linear-gradient(90deg, ${theme.palette.error.main} 0%, ${theme.palette.error.light} 100%)`,
             },
           }}
           aria-label={`ROI: ${roiPercent}%`}

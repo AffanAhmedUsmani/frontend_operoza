@@ -164,15 +164,15 @@ export default function ReportAssignmentDialog({
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             <FormControlLabel
-              control={<Switch checked={canView} onChange={(e) => setCanView(e.target.checked)} color="warning" />}
+              control={<Switch checked={canView} onChange={(e) => setCanView(e.target.checked)} />}
               label="Can View"
             />
             <FormControlLabel
-              control={<Switch checked={canComment} onChange={(e) => setCanComment(e.target.checked)} color="warning" />}
+              control={<Switch checked={canComment} onChange={(e) => setCanComment(e.target.checked)} />}
               label="Can Comment"
             />
             <FormControlLabel
-              control={<Switch checked={canExport} onChange={(e) => setCanExport(e.target.checked)} color="warning" />}
+              control={<Switch checked={canExport} onChange={(e) => setCanExport(e.target.checked)} />}
               label="Can Export"
             />
           </Stack>

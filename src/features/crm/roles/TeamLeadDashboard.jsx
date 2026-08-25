@@ -1,100 +1,96 @@
-import { useState } from "react";
-import { Box, Card, CardContent, Chip, Grid, Stack, Tab, Tabs, Typography } from "@mui/material";
+import { Card, CardContent, Stack, Typography } from "@mui/material";
 import DashboardsPanel from "../components/dashboard/DashboardsPanel";
 import CampaignsPanel from "../components/CampaignsPanel";
 import SalesPanel from "../components/SalesPanel";
 import ReportsPanel from "../components/reports/ReportsPanel";
+import MyTeamPanel from "../components/MyTeamPanel";
+import MyFollowUpsPanel from "../components/MyFollowUpsPanel";
+import PayrollPanel from "../components/PayrollPanel";
+import MessagingPanel from "../../messaging/components/MessagingPanel";
+import ComingSoonNotice from "../components/ComingSoonNotice";
 import { useCampaigns } from "../hooks/useCampaigns";
 
-const TAB_MAP = { Dashboard: 0, Campaigns: 1, Sales: 2, Reports: 3, "My Team": 4, Dashboards: 5, Settings: 6 };
+const KNOWN_SECTIONS = ["Dashboard", "Campaigns", "Sales", "Reports", "My Team", "Dashboards", "Payroll", "Follow-Ups", "Messages", "Settings"];
 
-function TabPanel({ value, index, children }) {
-  return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null;
-}
-
+/**
+ * Sprint 8 (docs/SPRINT_PLAN.md) - fixed the TL-002 duplicate-navigation
+ * defect: this used to render its own internal <Tabs> bar in addition to
+ * the sidebar (TenantCrmLayout.jsx), two navigation surfaces controlling
+ * the same state. Now driven purely by activeNavLabel, matching
+ * AgentDashboard's already-correct pattern - exactly one nav surface.
+ * "Dashboard" and "My Team" also used to show fixed fake numbers with no
+ * fetch behind them (general guide §15.7); "My Team" is now real
+ * (MyTeamPanel), "Dashboard" is an honest landing card since no
+ * conversion/follow-up backend exists yet (FollowUpTask is Sprint 12).
+ */
 function TeamLeadDashboard({ session, activeNavLabel }) {
   const accessToken = session?.accessToken;
-  const [tab, setTab] = useState(0);
+  const currentSection = activeNavLabel || "Dashboard";
   const { campaigns } = useCampaigns(accessToken);
-
-  const handleNav = (label) => {
-    if (TAB_MAP[label] !== undefined) setTab(TAB_MAP[label]);
-  };
-
-  // Sync sidebar nav → tab
-  if (activeNavLabel && TAB_MAP[activeNavLabel] !== undefined && TAB_MAP[activeNavLabel] !== tab) {
-    setTab(TAB_MAP[activeNavLabel]);
-  }
 
   return (
     <Stack spacing={2}>
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        sx={{ borderBottom: "1px solid #ead8c4" }}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        aria-label="Team Lead workspace sections"
-      >
-        {Object.keys(TAB_MAP).map((label) => (
-          <Tab key={label} label={label} />
-        ))}
-      </Tabs>
-
-      <TabPanel value={tab} index={0}>
-        <Grid container spacing={2}>
-          {[
-            { title: "Team Conversion", value: "18.9%", trend: "+1.2%" },
-            { title: "Leads in Follow-up", value: "312", trend: "+27 today" },
-            { title: "Coaching Due", value: "14", trend: "-3 completed" },
-          ].map((card) => (
-            <Grid item xs={12} sm={6} md={4} key={card.title}>
-              <Card sx={{ border: "1px solid #ead8c4" }}>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary">{card.title}</Typography>
-                  <Typography variant="h5">{card.value}</Typography>
-                  <Chip label={card.trend} color={card.trend.startsWith("+") ? "success" : "warning"} size="small" sx={{ mt: 0.5 }} />
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </TabPanel>
-
-      <TabPanel value={tab} index={1}>
-        <CampaignsPanel session={session} />
-      </TabPanel>
-
-      <TabPanel value={tab} index={2}>
-        <SalesPanel accessToken={accessToken} />
-      </TabPanel>
-
-      <TabPanel value={tab} index={3}>
-        <ReportsPanel session={session} accessToken={accessToken} />
-      </TabPanel>
-
-      <TabPanel value={tab} index={4}>
-        <Card sx={{ border: "1px solid #ead8c4" }}>
+      {currentSection === "Dashboard" ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
-            <Typography variant="h6">My Team</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>Agent activity, coaching notes, and SLA tracking will appear here.</Typography>
+            <Typography variant="h6">Team Lead Workspace</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              Use the sidebar to review campaigns, sales, and reports, or check My Team for your
+              current agent roster.
+            </Typography>
           </CardContent>
         </Card>
-      </TabPanel>
+      ) : null}
 
-      <TabPanel value={tab} index={5}>
+      {currentSection === "Campaigns" ? <CampaignsPanel session={session} /> : null}
+
+      {currentSection === "Sales" ? <SalesPanel accessToken={accessToken} /> : null}
+
+      {currentSection === "Reports" ? <ReportsPanel session={session} accessToken={accessToken} /> : null}
+
+      {currentSection === "My Team" ? <MyTeamPanel accessToken={accessToken} /> : null}
+
+      {currentSection === "Dashboards" ? (
         <DashboardsPanel accessToken={accessToken} role="team_lead" campaigns={campaigns} />
-      </TabPanel>
+      ) : null}
 
-      <TabPanel value={tab} index={6}>
-        <Card sx={{ border: "1px solid #ead8c4" }}>
+      {currentSection === "Payroll" ? <PayrollPanel accessToken={accessToken} role="team_lead" /> : null}
+
+      {currentSection === "Follow-Ups" ? (
+        <MyFollowUpsPanel accessToken={accessToken} showEmployeeColumn title="Team Follow-Ups" />
+      ) : null}
+
+      {currentSection === "Messages" ? <MessagingPanel accessToken={accessToken} /> : null}
+
+      {currentSection === "Settings" ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
             <Typography variant="h6">Settings</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>Notification preferences and profile settings will appear here.</Typography>
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              <ComingSoonNotice
+                title="Notifications"
+                description="Route coaching alerts, escalation notices, and SLA warnings to the correct channel."
+                sprint="Sprint 11"
+              />
+              <ComingSoonNotice
+                title="Team visibility"
+                description="Fine-tune which team members and dashboards are surfaced in this workspace."
+              />
+            </Stack>
           </CardContent>
         </Card>
-      </TabPanel>
+      ) : null}
+
+      {!KNOWN_SECTIONS.includes(currentSection) ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+          <CardContent>
+            <Typography variant="h6">Team Lead Workspace</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              Use the sidebar to navigate to a section.
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : null}
     </Stack>
   );
 }

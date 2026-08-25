@@ -25,6 +25,7 @@ function normalizeOnboardResponse(data) {
 function normalizeLoginResponse(data) {
   return {
     accessToken: data.access_token,
+    refreshToken: data.refresh_token,
     user: {
       userId: data.user.user_id,
       displayName: data.user.display_name,
@@ -35,6 +36,13 @@ function normalizeLoginResponse(data) {
       tenantId: data.tenant.tenant_id,
       tenantSlug: data.tenant.tenant_slug,
       companyName: data.tenant.company_name,
+      // Sprint 19 (docs/SPRINT_PLAN.md), general guide S12 - "the
+      // frontend theme provider reads this at login."
+      brandPrimaryColor: data.tenant.brand_primary_color || "",
+      brandSecondaryColor: data.tenant.brand_secondary_color || "",
+      brandBackgroundColor: data.tenant.brand_background_color || "",
+      brandSurfaceColor: data.tenant.brand_surface_color || "",
+      brandLogoUrl: data.tenant.brand_logo_url || "",
     },
   };
 }
@@ -59,6 +67,57 @@ async function onboardTenant(payload) {
     body: JSON.stringify(requestBody),
   });
   return normalizeOnboardResponse(data);
+}
+
+async function restoreTenant(payload) {
+  // Sprint 18 (docs/SPRINT_PLAN.md) - "I'm a returning customer restoring
+  // a previous portal", alongside onboardTenant's "create a new
+  // workspace" path. Uses FormData (not JSON) since it carries a file.
+  const formData = new FormData();
+  formData.append("company_name", payload.companyName);
+  formData.append("email", payload.email);
+  formData.append("password", payload.password);
+  formData.append("dump_file", payload.dumpFile);
+
+  const data = await apiRequest("/api/auth/restore-tenant", {
+    method: "POST",
+    body: formData,
+  });
+
+  return {
+    tenant: {
+      tenantId: data.tenant_id,
+      tenantSlug: data.tenant_slug,
+      companyName: data.company_name,
+    },
+    user: {
+      userId: data.user_id,
+    },
+  };
+}
+
+async function fetchPublicTenantBranding(tenantSlug) {
+  // Post-Sprint-20 - the per-tenant login screen needs a tenant's colors
+  // and logo before any session/token exists (GET /api/auth/login itself
+  // is a POST, and returns branding only on success). Unauthenticated by
+  // design (see iam/views.py:public_tenant_branding) - a 404 for an
+  // unknown slug is treated as "no branding", never surfaced as an error,
+  // since the login page itself has nothing useful to say about it.
+  try {
+    const data = await apiRequest(`/api/auth/public/branding?tenant_slug=${encodeURIComponent(tenantSlug)}`, {
+      method: "GET",
+    });
+    return {
+      companyName: data.company_name || "",
+      brandPrimaryColor: data.brand_primary_color || "",
+      brandSecondaryColor: data.brand_secondary_color || "",
+      brandBackgroundColor: data.brand_background_color || "",
+      brandSurfaceColor: data.brand_surface_color || "",
+      brandLogoUrl: data.brand_logo_url || "",
+    };
+  } catch (_) {
+    return null;
+  }
 }
 
 async function loginTenant(payload) {
@@ -95,4 +154,25 @@ async function confirmPasswordReset(payload) {
   });
 }
 
-export { confirmPasswordReset, loginTenant, onboardTenant, requestPasswordReset };
+// "I forgot my workspace URL" recovery - deliberately takes no
+// tenant_slug (unlike requestPasswordReset above), since the whole
+// point is the caller doesn't know it. Always resolves with the same
+// generic message regardless of whether the email matched anything -
+// the backend enforces that (iam/views.py's request_workspace_recovery),
+// this just never asks for or displays a matched/not-matched result.
+async function requestWorkspaceRecovery(email) {
+  return apiRequest("/api/auth/workspace-recovery/request", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export {
+  confirmPasswordReset,
+  fetchPublicTenantBranding,
+  loginTenant,
+  onboardTenant,
+  requestPasswordReset,
+  requestWorkspaceRecovery,
+  restoreTenant,
+};

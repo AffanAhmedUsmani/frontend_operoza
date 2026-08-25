@@ -50,4 +50,11 @@ async function deleteSale(accessToken, saleId) {
   });
 }
 
-export { createSale, deleteSale, fetchSales, updateSale };
+async function requestCoachingNote(accessToken, saleId, fieldKey) {
+  return apiRequest(`/api/crm/sales/${saleId}/analysis/${fieldKey}/coaching-note`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+  });
+}
+
+export { createSale, deleteSale, fetchSales, requestCoachingNote, updateSale };

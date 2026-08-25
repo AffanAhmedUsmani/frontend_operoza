@@ -55,6 +55,64 @@ export async function fetchDashboardDetail(accessToken, dashboardId) {
   });
 }
 
+// Sprint 19 (docs/SPRINT_PLAN.md) - Dashboard Studio's "Save as Draft",
+// now a real backend representation instead of localStorage + alert().
+export async function fetchDashboardDraft(accessToken, dashboardId) {
+  return apiRequest(`/api/crm/dashboards/${dashboardId}/draft`, {
+    method: "GET",
+    headers: authHeaders(accessToken),
+  });
+}
+
+export async function saveDashboardDraft(accessToken, dashboardId, widgets) {
+  return apiRequest(`/api/crm/dashboards/${dashboardId}/draft`, {
+    method: "PUT",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ widgets }),
+  });
+}
+
+export async function clearDashboardDraft(accessToken, dashboardId) {
+  return apiRequest(`/api/crm/dashboards/${dashboardId}/draft`, {
+    method: "DELETE",
+    headers: authHeaders(accessToken),
+  });
+}
+
+// Sprint 19 (docs/SPRINT_PLAN.md) - "saved/reusable custom widget
+// combinations": tenant-owned, distinct from dashboardTemplates.js's
+// hardcoded, system-wide presets.
+export async function fetchWidgetPresets(accessToken) {
+  const data = await apiRequest("/api/crm/dashboard-widget-presets", {
+    method: "GET",
+    headers: authHeaders(accessToken),
+  });
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function saveWidgetPreset(accessToken, { dashboardId, name }) {
+  return apiRequest("/api/crm/dashboard-widget-presets", {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ dashboard_id: dashboardId, name }),
+  });
+}
+
+export async function deleteWidgetPreset(accessToken, presetId) {
+  return apiRequest(`/api/crm/dashboard-widget-presets/${presetId}`, {
+    method: "DELETE",
+    headers: authHeaders(accessToken),
+  });
+}
+
+export async function applyWidgetPreset(accessToken, dashboardId, presetId) {
+  return apiRequest(`/api/crm/dashboards/${dashboardId}/apply-preset`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ preset_id: presetId }),
+  });
+}
+
 export async function fetchDashboardAssignments(accessToken, dashboardId) {
   const data = await apiRequest(`/api/crm/dashboards/${dashboardId}/assignments`, {
     method: "GET",

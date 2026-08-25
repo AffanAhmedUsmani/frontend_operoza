@@ -12,7 +12,8 @@ import {
   DialogActions,
   Alert,
 } from "@mui/material";
-import { MdSave, MdClose, MdUndo } from "react-icons/md";
+import { MdSave, MdClose, MdUndo, MdRedo } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 
 /**
  * StudioToolbar — Top toolbar for dashboard studio
@@ -37,7 +38,10 @@ function StudioToolbar({
   onCancel,
   onUndo,
   canUndo,
+  onRedo,
+  canRedo,
 }) {
+  const theme = useTheme();
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
   const handleCancelClick = () => {
@@ -52,8 +56,8 @@ function StudioToolbar({
     <>
       <Box
         sx={{
-          background: "linear-gradient(135deg, #f5ece0 0%, #faf6f0 100%)",
-          border: "1px solid #ead8c4",
+          bgcolor: "brand.subtle",
+          border: "1px solid", borderColor: "divider",
           borderRadius: 2,
           p: 2,
           mb: 3,
@@ -95,6 +99,21 @@ function StudioToolbar({
               </Tooltip>
             )}
 
+            {onRedo && (
+              <Tooltip title={canRedo ? "Redo last undone change" : "Nothing to redo"}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    aria-label="Redo"
+                  >
+                    <MdRedo size={18} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+
             {/* Primary: Save button */}
             <Tooltip title="Save dashboard with all widgets">
               <span>
@@ -106,9 +125,9 @@ function StudioToolbar({
                   disabled={!hasChanges}
                   sx={{
                     background: hasChanges
-                      ? "linear-gradient(135deg, #c05314 0%, #a03f0f 100%)"
-                      : "#e0e0e0",
-                    color: hasChanges ? "#fff" : "#999",
+                      ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`
+                      : theme.palette.action.disabledBackground,
+                    color: hasChanges ? theme.palette.primary.contrastText : "text.disabled",
                     fontWeight: 700,
                   }}
                   aria-label="Save dashboard"

@@ -7,20 +7,25 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import { MdDeleteForever, MdDownload, MdPeople, MdSettings, MdViewList } from "react-icons/md";
 import CampaignSalesWidget from "./CampaignSalesWidget";
 import { normalizeRole } from "../sales/salesFormUtils";
 
-const STATUS_COLORS = {
-  draft:     { bg: "#f0f0f0", color: "#666" },
-  running:   { bg: "#e6f4ea", color: "#2e7d32" },
-  paused:    { bg: "#fff3e0", color: "#e65100" },
-  completed: { bg: "#e3f2fd", color: "#1565c0" },
-  archived:  { bg: "#fafafa", color: "#9e9e9e" },
-};
-
-const THEME_BORDER = "rgba(192, 83, 20, 0.62)";
-const THEME_DIVIDER = "rgba(192, 83, 20, 0.35)";
+// Post-Sprint-20 - status is a semantic signal (draft/running/paused/...),
+// not a brand identity, so it reads from MUI's built-in success/warning/
+// info/error palette (already mode-aware) rather than the tenant's
+// primary/secondary - the same "semantic color is separate from the
+// accent hue" rule the rest of the theme follows.
+function getStatusStyles(theme) {
+  return {
+    draft: { bg: alpha(theme.palette.text.secondary, 0.12), color: theme.palette.text.secondary },
+    running: { bg: alpha(theme.palette.success.main, 0.16), color: theme.palette.success.dark },
+    paused: { bg: alpha(theme.palette.warning.main, 0.18), color: theme.palette.warning.dark },
+    completed: { bg: alpha(theme.palette.info.main, 0.16), color: theme.palette.info.dark },
+    archived: { bg: alpha(theme.palette.text.disabled, 0.12), color: theme.palette.text.disabled },
+  };
+}
 
 export default function CampaignCard({
   campaign,
@@ -32,10 +37,14 @@ export default function CampaignCard({
   onOpenSettings,
   onOpenExport,
 }) {
+  const theme = useTheme();
+  const statusStyles = getStatusStyles(theme);
+  const themeBorder = alpha(theme.palette.primary.main, 0.55);
+  const themeDivider = alpha(theme.palette.primary.main, 0.28);
   const schemaFields = Array.isArray(campaign.schema_json) ? campaign.schema_json : [];
   const fieldCount = schemaFields.length;
   const statusKey = (campaign.status_code || "draft").toLowerCase();
-  const statusStyle = STATUS_COLORS[statusKey] || STATUS_COLORS.draft;
+  const statusStyle = statusStyles[statusKey] || statusStyles.draft;
   const normalizedRole = normalizeRole(userRole || "");
   const isAdmin = normalizedRole === "admin";
   const canManageCampaign = ["admin", "team_lead"].includes(normalizedRole);
@@ -44,16 +53,16 @@ export default function CampaignCard({
   return (
     <Card
       sx={{
-        border: `1.5px solid ${THEME_BORDER}`,
+        border: `1.5px solid ${themeBorder}`,
         borderRadius: { xs: 2.5, md: 4 },
         overflow: "hidden",
         width: "100%",
-        bgcolor: "#fcfcfc",
+        bgcolor: "background.paper",
         transition: "box-shadow 0.15s, transform 0.15s",
         "&:hover": {
-          boxShadow: "0 8px 18px rgba(192, 83, 20, 0.15)",
+          boxShadow: `0 8px 18px ${alpha(theme.palette.primary.main, 0.18)}`,
           transform: "translateY(-1px)",
-          borderColor: "#c05314",
+          borderColor: "primary.main",
         },
       }}
     >
@@ -70,8 +79,8 @@ export default function CampaignCard({
             py: 1.25,
             minHeight: { md: 74 },
             justifyContent: "center",
-            borderRight: { md: `1px solid ${THEME_DIVIDER}` },
-            borderBottom: { xs: `1px solid ${THEME_DIVIDER}`, md: "none" },
+            borderRight: { md: `1px solid ${themeDivider}` },
+            borderBottom: { xs: `1px solid ${themeDivider}`, md: "none" },
           }}
         >
           <Typography variant="h6" fontWeight={700} noWrap>{campaign.name}</Typography>
@@ -83,8 +92,8 @@ export default function CampaignCard({
             py: 1.25,
             minHeight: { md: 74 },
             justifyContent: "center",
-            borderRight: { md: `1px solid ${THEME_DIVIDER}` },
-            borderBottom: { xs: `1px solid ${THEME_DIVIDER}`, md: "none" },
+            borderRight: { md: `1px solid ${themeDivider}` },
+            borderBottom: { xs: `1px solid ${themeDivider}`, md: "none" },
           }}
         >
           <Chip
@@ -101,8 +110,8 @@ export default function CampaignCard({
             py: 1.1,
             minHeight: { md: 74 },
             justifyContent: "center",
-            borderRight: { md: `1px solid ${THEME_DIVIDER}` },
-            borderBottom: { xs: `1px solid ${THEME_DIVIDER}`, md: "none" },
+            borderRight: { md: `1px solid ${themeDivider}` },
+            borderBottom: { xs: `1px solid ${themeDivider}`, md: "none" },
           }}
         >
           <CampaignSalesWidget campaignId={campaign.campaign_id} accessToken={accessToken} />
@@ -117,8 +126,8 @@ export default function CampaignCard({
                   bottom: 7,
                   border: "1px solid",
                   borderColor: "divider",
-                  bgcolor: "#fff",
-                  "&:hover": { bgcolor: "#f5f5f5" },
+                  bgcolor: "background.paper",
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
               >
                 <MdDownload size={15} />

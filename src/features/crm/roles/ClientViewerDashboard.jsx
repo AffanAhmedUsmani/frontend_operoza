@@ -1,74 +1,61 @@
-import { useState } from "react";
-import { Box, Card, CardContent, Stack, Tab, Tabs, Typography } from "@mui/material";
-import DashboardsPanel from "../components/dashboard/DashboardsPanel";
+import { Card, CardContent, Stack, Typography } from "@mui/material";
+import ClientCampaignsPanel from "../components/ClientCampaignsPanel";
 import ReportsPanel from "../components/reports/ReportsPanel";
-import { useCampaigns } from "../hooks/useCampaigns";
+import ComingSoonNotice from "../components/ComingSoonNotice";
 
-const TAB_MAP = { Dashboard: 0, Campaigns: 1, Reports: 2, Dashboards: 3, Settings: 4 };
+const KNOWN_SECTIONS = ["Campaigns", "Reports", "Settings"];
 
-function TabPanel({ value, index, children }) {
-  return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null;
-}
-
+/**
+ * Sprint 8 (docs/SPRINT_PLAN.md) - fixed the CL-001 duplicate-navigation
+ * defect (its own internal <Tabs> bar, in addition to the sidebar).
+ * "Dashboard" and "Dashboards" tabs are removed entirely: neither is a
+ * real sidebar nav item for Client (TenantCrmLayout.jsx's NAV_MAP has no
+ * "Dashboard"/"Dashboards" entry for this role - assigned dashboards are
+ * their own per-dashboard nav items, handled by RoleDashboardSwitch
+ * before this component ever renders), so they were unreachable via the
+ * sidebar and only existed via the now-removed internal tab bar.
+ * "Campaigns" is now a real read-only view (general guide §15.7) instead
+ * of a stub pointing at other tabs.
+ */
 function ClientViewerDashboard({ session, activeNavLabel }) {
   const accessToken = session?.accessToken;
-  const [tab, setTab] = useState(0);
-  const { campaigns } = useCampaigns(accessToken);
-
-  if (activeNavLabel && TAB_MAP[activeNavLabel] !== undefined && TAB_MAP[activeNavLabel] !== tab) {
-    setTab(TAB_MAP[activeNavLabel]);
-  }
+  const currentSection = activeNavLabel || "Campaigns";
 
   return (
     <Stack spacing={2}>
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        sx={{ borderBottom: "1px solid #ead8c4" }}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        aria-label="Client workspace sections"
-      >
-        {Object.keys(TAB_MAP).map((label) => (
-          <Tab key={label} label={label} />
-        ))}
-      </Tabs>
+      {currentSection === "Campaigns" ? <ClientCampaignsPanel accessToken={accessToken} /> : null}
 
-      <TabPanel value={tab} index={0}>
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Campaign Overview</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>Campaign progress, delivered leads, and SLA status will appear here.</Typography>
-          </CardContent>
-        </Card>
-      </TabPanel>
+      {currentSection === "Reports" ? <ReportsPanel session={session} accessToken={accessToken} /> : null}
 
-      <TabPanel value={tab} index={1}>
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Campaigns</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>Read-only campaign details and milestones will appear here.</Typography>
-          </CardContent>
-        </Card>
-      </TabPanel>
-
-      <TabPanel value={tab} index={2}>
-        <ReportsPanel session={session} accessToken={accessToken} />
-      </TabPanel>
-
-      <TabPanel value={tab} index={3}>
-        <DashboardsPanel accessToken={accessToken} role="client" campaigns={campaigns} />
-      </TabPanel>
-
-      <TabPanel value={tab} index={4}>
-        <Card sx={{ border: "1px solid #ead8c4" }}>
+      {currentSection === "Settings" ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
             <Typography variant="h6">Settings</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>Account preferences will appear here.</Typography>
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              <ComingSoonNotice
+                title="Notifications"
+                description="Configure client-facing status alerts and delivery summaries."
+                sprint="Sprint 11"
+              />
+              <ComingSoonNotice
+                title="Access"
+                description="Manage who can view reports, dashboards, and exportable data."
+              />
+            </Stack>
           </CardContent>
         </Card>
-      </TabPanel>
+      ) : null}
+
+      {!KNOWN_SECTIONS.includes(currentSection) ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+          <CardContent>
+            <Typography variant="h6">Client Workspace</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              Use the sidebar to navigate to a section.
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : null}
     </Stack>
   );
 }

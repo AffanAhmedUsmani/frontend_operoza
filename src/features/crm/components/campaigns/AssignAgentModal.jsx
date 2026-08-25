@@ -101,7 +101,7 @@ export default function AssignAgentModal({ open, campaign, accessToken, onSaved,
                   }
                   label={
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.5 }}>
-                      <Avatar sx={{ width: 30, height: 30, fontSize: 13, bgcolor: "#c87941" }}>
+                      <Avatar sx={{ width: 30, height: 30, fontSize: 13, bgcolor: "primary.light" }}>
                         {(displayName || email || "?")[0].toUpperCase()}
                       </Avatar>
                       <Box>

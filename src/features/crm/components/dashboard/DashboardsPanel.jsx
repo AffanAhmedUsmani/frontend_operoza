@@ -24,6 +24,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MdAdd, MdArrowBack, MdAutoAwesome, MdBarChart, MdDashboard, MdEdit, MdManageAccounts } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 import { useDashboards } from "../../hooks/useDashboards";
 import DashboardViewer from "./DashboardViewer";
 import DashboardBuilderPanel from "./DashboardBuilderPanel";
@@ -48,6 +49,7 @@ const CAN_BUILD_ROLES = new Set(["admin", "team_lead"]);
  *   campaigns     — array of campaign objects [{ campaign_id, name }] for the dropdown
  */
 function DashboardsPanel({ accessToken, role, campaigns = [] }) {
+  const theme = useTheme();
   const canBuild = CAN_BUILD_ROLES.has(role);
 
   const [campaignFilter, setCampaignFilter] = useState("");
@@ -163,7 +165,7 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
             label={campaignName}
             size="small"
             icon={<MdBarChart style={{ fontSize: 12 }} />}
-            sx={{ bgcolor: "#f5ece0", color: "#7c3f17" }}
+            sx={{ bgcolor: "brand.subtle", color: "primary.dark" }}
           />
           {canBuild && (
             <Button
@@ -293,13 +295,13 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
           sx={{
             textAlign: "center",
             py: 8,
-            border: "2px dashed #ead8c4",
+            border: "2px dashed", borderColor: "divider",
             borderRadius: 3,
           }}
           role="status"
           aria-live="polite"
         >
-          <MdDashboard size={36} color="#c87941" aria-hidden="true" />
+          <MdDashboard size={36} color={theme.palette.primary.light} aria-hidden="true" />
           <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
             No dashboards yet
           </Typography>
@@ -328,7 +330,7 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={d.dashboard_id}>
                 <Card
                   sx={{
-                    border: "1px solid #ead8c4",
+                    border: "1px solid", borderColor: "divider",
                     borderRadius: 3,
                     height: "100%",
                     transition: "box-shadow 0.15s",
@@ -342,7 +344,7 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
                   >
                     <CardContent component={Stack} spacing={1.5}>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <MdDashboard size={18} color="#c05314" aria-hidden="true" />
+                        <MdDashboard size={18} color={theme.palette.primary.main} aria-hidden="true" />
                         <Typography variant="subtitle1" fontWeight={700} noWrap>
                           {d.name}
                         </Typography>
@@ -415,11 +417,11 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
               </Typography>
               <Grid container spacing={1.5}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Card variant={createForm.creation_mode === "manual" ? "elevation" : "outlined"} sx={{ borderColor: createForm.creation_mode === "manual" ? "primary.main" : "#ead8c4" }}>
+                  <Card variant={createForm.creation_mode === "manual" ? "elevation" : "outlined"} sx={{ borderColor: createForm.creation_mode === "manual" ? "primary.main" : "divider" }}>
                     <CardActionArea onClick={() => setCreateForm((p) => ({ ...p, creation_mode: "manual" }))}>
                       <CardContent>
                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                          <MdEdit color="#c05314" />
+                          <MdEdit color={theme.palette.primary.main} />
                           <Typography fontWeight={700}>Build Manually</Typography>
                         </Stack>
                         <Typography variant="body2" color="text.secondary">
@@ -430,11 +432,11 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
                   </Card>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Card variant={createForm.creation_mode === "template" ? "elevation" : "outlined"} sx={{ borderColor: createForm.creation_mode === "template" ? "secondary.main" : "#ead8c4" }}>
+                  <Card variant={createForm.creation_mode === "template" ? "elevation" : "outlined"} sx={{ borderColor: createForm.creation_mode === "template" ? "secondary.main" : "divider" }}>
                     <CardActionArea onClick={() => setCreateForm((p) => ({ ...p, creation_mode: "template" }))}>
                       <CardContent>
                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                          <MdAutoAwesome color="#0f8a7a" />
+                          <MdAutoAwesome color={theme.palette.secondary.main} />
                           <Typography fontWeight={700}>Use Dashboard Template</Typography>
                         </Stack>
                         <Typography variant="body2" color="text.secondary">
@@ -499,7 +501,7 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
               <Grid container spacing={1.5}>
                 {DASHBOARD_TEMPLATE_PRESETS.map((preset) => (
                   <Grid size={{ xs: 12, sm: 6 }} key={preset.code}>
-                    <Card variant={createForm.template_code === preset.code ? "elevation" : "outlined"} sx={{ borderColor: createForm.template_code === preset.code ? preset.accent : "#ead8c4" }}>
+                    <Card variant={createForm.template_code === preset.code ? "elevation" : "outlined"} sx={{ borderColor: createForm.template_code === preset.code ? preset.accent : "divider" }}>
                       <CardActionArea onClick={() => setCreateForm((p) => ({ ...p, template_code: preset.code }))}>
                         <CardContent>
                           <Typography fontWeight={700}>{preset.label}</Typography>

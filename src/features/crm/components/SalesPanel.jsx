@@ -9,6 +9,7 @@ import { MdAdd } from "react-icons/md";
 import { fetchTenantUsers } from "../services/adminService";
 import { fetchCampaigns, uploadCampaignAudio } from "../services/campaignService";
 import { createSale, deleteSale, fetchSales, updateSale } from "../services/salesService";
+import CreateFollowUpDialog from "./sales/CreateFollowUpDialog";
 import SaleAnalysisDialog from "./sales/SaleAnalysisDialog";
 import SaleEditorDialog from "./sales/SaleEditorDialog";
 import SalesFiltersCard from "./sales/SalesFiltersCard";
@@ -56,6 +57,7 @@ export default function SalesPanel({ accessToken }) {
   const [saving, setSaving] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [analysisSale, setAnalysisSale] = useState(null);
+  const [followUpTargetSale, setFollowUpTargetSale] = useState(null);
   const [pendingAudioFiles, setPendingAudioFiles] = useState({});
 
   const actorContext = useMemo(() => resolveActorContext(accessToken), [accessToken]);
@@ -101,6 +103,42 @@ export default function SalesPanel({ accessToken }) {
     () => campaigns.find((c) => String(c.campaign_id) === String(filters.campaignId)),
     [campaigns, filters.campaignId]
   );
+
+  const selectedCampaignAgentUsers = useMemo(() => {
+    if (!isAdmin) {
+      return [];
+    }
+    if (!selectedCampaign) {
+      return users;
+    }
+    const assignedIds = new Set(
+      Array.isArray(selectedCampaign.assigned_users)
+        ? selectedCampaign.assigned_users.map((item) => String(item.user_id))
+        : []
+    );
+    if (assignedIds.size === 0) {
+      return [];
+    }
+    return users.filter((user) => assignedIds.has(String(user.user_id)));
+  }, [isAdmin, selectedCampaign, users]);
+
+  const selectedFormAgentUsers = useMemo(() => {
+    if (!isAdmin) {
+      return [];
+    }
+    if (!selectedFormCampaign) {
+      return users;
+    }
+    const assignedIds = new Set(
+      Array.isArray(selectedFormCampaign.assigned_users)
+        ? selectedFormCampaign.assigned_users.map((item) => String(item.user_id))
+        : []
+    );
+    if (assignedIds.size === 0) {
+      return [];
+    }
+    return users.filter((user) => assignedIds.has(String(user.user_id)));
+  }, [isAdmin, selectedFormCampaign, users]);
 
   const dynamicFields = useMemo(() => {
     const schema = Array.isArray(selectedCampaign?.schema_json) ? selectedCampaign.schema_json : [];
@@ -382,7 +420,7 @@ export default function SalesPanel({ accessToken }) {
         filters={filters}
         setFilters={setFilters}
         campaigns={campaigns}
-        users={users}
+        users={selectedCampaignAgentUsers}
         saleStatuses={SALE_STATUSES}
         dynamicFields={dynamicFields}
         onApply={applyFilters}
@@ -399,6 +437,15 @@ export default function SalesPanel({ accessToken }) {
         onOpenView={openView}
         onOpenEdit={openEdit}
         onDelete={handleDelete}
+        onCreateFollowUp={setFollowUpTargetSale}
+      />
+
+      <CreateFollowUpDialog
+        open={Boolean(followUpTargetSale)}
+        sale={followUpTargetSale}
+        accessToken={accessToken}
+        onCreated={() => {}}
+        onClose={() => setFollowUpTargetSale(null)}
       />
 
       <SaleEditorDialog
@@ -408,7 +455,7 @@ export default function SalesPanel({ accessToken }) {
         readOnly={Boolean(viewingSale)}
         isAdmin={isAdmin}
         campaigns={campaigns}
-        users={users}
+        users={selectedFormAgentUsers}
         form={form}
         formSchema={dialogSchema}
         selectedFormCampaign={selectedFormCampaign}
@@ -431,6 +478,7 @@ export default function SalesPanel({ accessToken }) {
       <SaleAnalysisDialog
         open={analysisOpen}
         sale={analysisSale}
+        accessToken={accessToken}
         onClose={() => setAnalysisOpen(false)}
       />
     </Stack>

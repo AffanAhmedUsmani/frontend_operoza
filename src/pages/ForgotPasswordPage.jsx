@@ -67,7 +67,7 @@ function ForgotPasswordPage() {
     <Box className="page-shell">
       <Box className="ambient-bg" />
       <Container maxWidth="sm" sx={{ py: { xs: 7, md: 12 }, position: "relative", zIndex: 2 }}>
-        <Card className="fade-up" sx={{ border: "1px solid #ead8c4" }}>
+        <Card className="fade-up" sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent sx={{ p: { xs: 3, md: 5 } }}>
             <Stack spacing={2}>
               <Typography variant="h4">Reset Password</Typography>

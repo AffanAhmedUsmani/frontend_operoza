@@ -1,6 +1,9 @@
 import { Card, CardContent, Stack, Typography } from "@mui/material";
 import AttendancePanel from "../components/AttendancePanel";
 import CampaignsPanel from "../components/CampaignsPanel";
+import MyFollowUpsPanel from "../components/MyFollowUpsPanel";
+import PayrollPanel from "../components/PayrollPanel";
+import MessagingPanel from "../../messaging/components/MessagingPanel";
 import ReportsPanel from "../components/reports/ReportsPanel";
 import SalesPanel from "../components/SalesPanel";
 
@@ -22,12 +25,22 @@ function AgentDashboard({ session, activeNavLabel }) {
         <SalesPanel accessToken={accessToken} />
       ) : null}
 
+      {currentSection === "Payroll" ? (
+        <PayrollPanel accessToken={accessToken} role="agent" />
+      ) : null}
+
+      {currentSection === "Follow-Ups" ? (
+        <MyFollowUpsPanel accessToken={accessToken} title="My Follow-Ups" />
+      ) : null}
+
+      {currentSection === "Messages" ? <MessagingPanel accessToken={accessToken} /> : null}
+
       {currentSection === "Reports" ? (
         <ReportsPanel session={session} accessToken={accessToken} />
       ) : null}
 
-      {! ["Attendance", "Campaigns", "Sales", "Reports"].includes(currentSection) ? (
-        <Card sx={{ border: "1px solid #ead8c4" }}>
+      {! ["Attendance", "Campaigns", "Sales", "Payroll", "Follow-Ups", "Messages", "Reports"].includes(currentSection) ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
             <Typography variant="h6">Agent Workspace</Typography>
             <Typography color="text.secondary" sx={{ mt: 1 }}>

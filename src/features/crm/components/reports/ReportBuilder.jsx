@@ -19,9 +19,25 @@ import {
   Select,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import { MdHelpOutline } from "react-icons/md";
 import { createReport, updateReport, validateReportConfig } from "../../services/reportingService";
+
+// Sprint 19 (docs/SPRINT_PLAN.md) - static, always-on formula cheat-sheet
+// with worked examples, matching crm/formula_engine.py's actual
+// whitelist exactly (SUM/COUNT/AVG, optional WHERE with AND/OR, root
+// namespaces sale/payload/audio) - never show an example the engine
+// wouldn't actually accept.
+const FORMULA_EXAMPLES = [
+  { formula: "SUM(sale.amount)", note: "Total of a numeric field" },
+  { formula: "COUNT(*)", note: "Row count" },
+  { formula: "AVG(sale.amount)", note: "Average of a numeric field" },
+  { formula: "SUM(sale.amount WHERE sale.status_code == \"won\")", note: "Total, filtered to matching rows" },
+  { formula: "COUNT(*) WHERE payload.premium > 100", note: "Count with a numeric condition" },
+  { formula: "SUM(sale.amount WHERE sale.status_code == \"won\" AND payload.tier == \"gold\")", note: "Combine conditions with AND/OR" },
+];
 
 const BASE_SALE_COLUMNS = [
   { key: "lead_name", label: "Lead Name", source: "sale.lead_name", type: "text" },
@@ -80,6 +96,15 @@ export default function ReportBuilder({ open, onClose, accessToken, report, canC
   const [validation, setValidation] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Sprint 19 (docs/SPRINT_PLAN.md) - Report Builder previously had no
+  // way at all to add a formula column (only source-based fields could
+  // be dragged in), even though the backend engine already supported
+  // SUM/COUNT/AVG formulas - this closes that gap so "a report
+  // containing at least one formula column" is actually buildable.
+  const [formulaLabel, setFormulaLabel] = useState("");
+  const [formulaExpression, setFormulaExpression] = useState("");
+  const [formulaError, setFormulaError] = useState("");
 
   const selectedCampaign = campaigns.find((item) => String(item.campaign_id) === String(campaignId));
 
@@ -145,6 +170,31 @@ export default function ReportBuilder({ open, onClose, accessToken, report, canC
       next.splice(toIndex, 0, moved);
       return next;
     });
+  };
+
+  const addFormulaColumn = () => {
+    const label = formulaLabel.trim();
+    const formula = formulaExpression.trim();
+    setFormulaError("");
+    if (!label) {
+      setFormulaError("Give the column a name.");
+      return;
+    }
+    if (!formula) {
+      setFormulaError("Enter a formula - see the examples above.");
+      return;
+    }
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `formula_${selectedColumns.length}`;
+    if (selectedColumns.some((col) => col.key === key)) {
+      setFormulaError("A column with that name already exists.");
+      return;
+    }
+    setSelectedColumns((prev) => [
+      ...prev,
+      normalizeColumn({ key, label, formula, type: "number" }),
+    ].filter(Boolean));
+    setFormulaLabel("");
+    setFormulaExpression("");
   };
 
   const handleValidate = async () => {
@@ -244,7 +294,7 @@ export default function ReportBuilder({ open, onClose, accessToken, report, canC
             </Select>
           </FormControl>
 
-          <Card sx={{ border: "1px solid #f0e5da" }}>
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={1.5}>
                 <Typography variant="subtitle2">Columns</Typography>
@@ -253,7 +303,7 @@ export default function ReportBuilder({ open, onClose, accessToken, report, canC
                 </Typography>
 
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                  <Box sx={{ flex: 1, border: "1px solid #ead8c4", borderRadius: 1, p: 1 }}>
+                  <Box sx={{ flex: 1, border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }}>
                     <Typography variant="caption" color="text.secondary">Available Columns</Typography>
                     <List dense sx={{ maxHeight: 220, overflowY: "auto" }}>
                       {availableColumns.map((col) => {
@@ -283,7 +333,7 @@ export default function ReportBuilder({ open, onClose, accessToken, report, canC
                   </Box>
 
                   <Box
-                    sx={{ flex: 1, border: "1px solid #ead8c4", borderRadius: 1, p: 1, minHeight: 220 }}
+                    sx={{ flex: 1, border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1, minHeight: 220 }}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={() => {
                       if (draggedAvailableKey) addColumnByKey(draggedAvailableKey);
@@ -332,9 +382,10 @@ export default function ReportBuilder({ open, onClose, accessToken, report, canC
                   {selectedColumns.map((col) => (
                     <Chip
                       key={col.key}
-                      label={col.label}
+                      label={col.formula ? `ƒ ${col.label}` : col.label}
                       onDelete={() => removeColumnByKey(col.key)}
                       size="small"
+                      color={col.formula ? "secondary" : "default"}
                     />
                   ))}
                 </Stack>
@@ -342,7 +393,59 @@ export default function ReportBuilder({ open, onClose, accessToken, report, canC
             </CardContent>
           </Card>
 
-          <Card sx={{ border: "1px solid #f0e5da" }}>
+          {/* Formula column + cheat-sheet (Sprint 19 - docs/SPRINT_PLAN.md's
+              static, always-on in-app guidance layer) */}
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Stack spacing={1.5}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Typography variant="subtitle2">Formula Column</Typography>
+                  <Tooltip
+                    title={
+                      <Stack spacing={0.5}>
+                        {FORMULA_EXAMPLES.map((ex) => (
+                          <Typography key={ex.formula} variant="caption" component="div">
+                            <code>{ex.formula}</code> — {ex.note}
+                          </Typography>
+                        ))}
+                      </Stack>
+                    }
+                    placement="right"
+                  >
+                    <Box component="span" sx={{ display: "inline-flex", cursor: "help" }}>
+                      <MdHelpOutline size={16} />
+                    </Box>
+                  </Tooltip>
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  Add a computed column using SUM/COUNT/AVG, optionally filtered with WHERE. Hover
+                  the (?) above for worked examples.
+                </Typography>
+                {formulaError ? <Alert severity="error">{formulaError}</Alert> : null}
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                  <TextField
+                    label="Column name"
+                    placeholder="Total Revenue"
+                    value={formulaLabel}
+                    onChange={(e) => setFormulaLabel(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Formula"
+                    placeholder='SUM(sale.amount WHERE sale.status_code == "won")'
+                    value={formulaExpression}
+                    onChange={(e) => setFormulaExpression(e.target.value)}
+                    fullWidth
+                  />
+                  <Button variant="outlined" onClick={addFormulaColumn} sx={{ whiteSpace: "nowrap" }}>
+                    Add Formula Column
+                  </Button>
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                 <Typography variant="subtitle2">Config Validation</Typography>

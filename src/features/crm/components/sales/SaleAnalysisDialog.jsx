@@ -1,9 +1,12 @@
+import { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,6 +18,7 @@ import {
 } from "@mui/material";
 import {
   MdAudiotrack,
+  MdAutoAwesome,
   MdCancel,
   MdCheckCircle,
   MdGraphicEq,
@@ -24,6 +28,9 @@ import {
   MdSentimentSatisfied,
   MdSentimentDissatisfied,
 } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
+import { requestCoachingNote } from "../../services/salesService";
+import UpgradeRequiredModal from "../UpgradeRequiredModal";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -127,6 +134,7 @@ function normalizeAnalysis(entry) {
 }
 
 function CheckRow({ name, result }) {
+  const theme = useTheme();
   const passed = result?.passed === true;
   const score = typeof result?.score === "number" ? result.score : null;
   const text = result?.text ?? null;
@@ -135,9 +143,9 @@ function CheckRow({ name, result }) {
   return (
     <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ py: 0.75 }}>
       {passed ? (
-        <MdCheckCircle size={18} color="green" style={{ marginTop: 2, flexShrink: 0 }} />
+        <MdCheckCircle size={18} color={theme.palette.success.main} style={{ marginTop: 2, flexShrink: 0 }} />
       ) : (
-        <MdCancel size={18} color="#d32f2f" style={{ marginTop: 2, flexShrink: 0 }} />
+        <MdCancel size={18} color={theme.palette.error.main} style={{ marginTop: 2, flexShrink: 0 }} />
       )}
       <Stack flex={1} spacing={0.25}>
         <Typography variant="body2" fontWeight={500}>
@@ -166,7 +174,7 @@ function CheckRow({ name, result }) {
   );
 }
 
-function AnalysisCard({ fieldKey, entry }) {
+function AnalysisCard({ fieldKey, entry, saleId, accessToken }) {
   const normalized = normalizeAnalysis(entry);
   const summary = normalized.summary;
   const transcript = normalized.transcript;
@@ -175,12 +183,51 @@ function AnalysisCard({ fieldKey, entry }) {
   const duration = normalized.duration;
   const talkRatio = normalized.talkRatio;
   const fileUrl = entry?.file_url ?? null;
-  const isLocked = entry?.locked;
+  // Sprint 14 (docs/SPRINT_PLAN.md): `locked` is now set true the moment
+  // audio is uploaded (it blocks re-upload), well before analysis has run -
+  // it no longer implies completion. `status` ("pending"|"failed"|
+  // "completed") is what actually reflects analyzer progress; entries from
+  // before this sprint have no `status` key at all, so a missing status on
+  // an already-locked entry is treated as the legacy "completed" case.
+  const status = entry?.status ?? (entry?.locked ? "completed" : "pending");
 
   const sentMeta = sentimentMeta(sentiment);
   const checkEntries = Object.entries(checks);
   const fieldLabel = fieldKey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const hasContent = transcript || summary || sentiment || checkEntries.length > 0 || duration;
+
+  const chipMeta =
+    status === "failed"
+      ? { color: "error", icon: <MdCancel size={12} />, label: "Analysis failed" }
+      : status === "pending"
+      ? { color: "warning", icon: <MdPending size={12} />, label: "Pending" }
+      : { color: "success", icon: <MdLock size={12} />, label: "Analysis complete" };
+
+  const [coachingNote, setCoachingNote] = useState("");
+  const [coachingError, setCoachingError] = useState("");
+  const [coachingLoading, setCoachingLoading] = useState(false);
+  const [upgradeModalReason, setUpgradeModalReason] = useState(null);
+
+  const handleCoachingNote = async () => {
+    if (!accessToken || !saleId) return;
+    setCoachingLoading(true);
+    setCoachingError("");
+    try {
+      const result = await requestCoachingNote(accessToken, saleId, fieldKey);
+      setCoachingNote(result?.note || "");
+    } catch (err) {
+      // PLATFORM_OPS_AND_BILLING.md S3 - a real ai_assist_action quota
+      // block (crm/ai_assist.py's AIAssistQuotaService), not a generic
+      // failure - point the admin at support instead of a bare string.
+      if (err.data?.code === "ai_assist_quota_exceeded") {
+        setUpgradeModalReason("ai_assist_quota_exceeded");
+      } else {
+        setCoachingError(err.message || "Failed to generate coaching note.");
+      }
+    } finally {
+      setCoachingLoading(false);
+    }
+  };
 
   return (
     <Card variant="outlined">
@@ -192,12 +239,7 @@ function AnalysisCard({ fieldKey, entry }) {
               <MdAudiotrack size={18} />
               <Typography variant="subtitle2">{fieldLabel}</Typography>
             </Stack>
-            <Chip
-              size="small"
-              icon={isLocked ? <MdLock size={12} /> : <MdPending size={12} />}
-              color={isLocked ? "success" : "warning"}
-              label={isLocked ? "Analysis complete" : "Pending"}
-            />
+            <Chip size="small" icon={chipMeta.icon} color={chipMeta.color} label={chipMeta.label} />
           </Stack>
 
           {/* Audio link */}
@@ -211,7 +253,19 @@ function AnalysisCard({ fieldKey, entry }) {
             </Box>
           )}
 
-          {!hasContent && (
+          {status === "failed" && (
+            <Typography variant="body2" color="error">
+              Analysis failed{entry?.error ? `: ${entry.error}` : "."}
+            </Typography>
+          )}
+
+          {status === "pending" && (
+            <Typography variant="body2" color="text.secondary">
+              Analysis is processing - check back shortly.
+            </Typography>
+          )}
+
+          {status === "completed" && !hasContent && (
             <Typography variant="body2" color="text.secondary">
               No analysis details available yet.
             </Typography>
@@ -283,13 +337,42 @@ function AnalysisCard({ fieldKey, entry }) {
               </Stack>
             </>
           )}
+
+          {status === "completed" && (
+            <>
+              <Divider />
+              <Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleCoachingNote}
+                  disabled={coachingLoading}
+                  startIcon={coachingLoading ? <CircularProgress size={14} color="inherit" /> : <MdAutoAwesome />}
+                >
+                  {coachingLoading ? "Generating..." : "Get Coaching Note"}
+                </Button>
+              </Box>
+              {coachingError ? <Alert severity="error">{coachingError}</Alert> : null}
+              {coachingNote ? (
+                <Alert severity="info" icon={<MdAutoAwesome />}>
+                  {coachingNote}
+                </Alert>
+              ) : null}
+            </>
+          )}
         </Stack>
       </CardContent>
+      <UpgradeRequiredModal
+        open={!!upgradeModalReason}
+        onClose={() => setUpgradeModalReason(null)}
+        reasonCode={upgradeModalReason}
+      />
     </Card>
   );
 }
 
-export default function SaleAnalysisDialog({ open, sale, onClose }) {
+export default function SaleAnalysisDialog({ open, sale, accessToken, onClose }) {
+  const theme = useTheme();
   const entries = Object.entries(sale?.audio_analysis_json || {});
 
   return (
@@ -307,7 +390,7 @@ export default function SaleAnalysisDialog({ open, sale, onClose }) {
       <DialogContent dividers>
         {!sale ? null : entries.length === 0 ? (
           <Stack spacing={1} alignItems="center" sx={{ py: 4 }}>
-            <MdGraphicEq size={40} color="#bdbdbd" />
+            <MdGraphicEq size={40} color={theme.palette.text.disabled} />
             <Typography color="text.secondary">No audio analysis available for this sale.</Typography>
             <Typography variant="caption" color="text.secondary">
               Upload an audio file in the sale editor to trigger analysis.
@@ -316,7 +399,13 @@ export default function SaleAnalysisDialog({ open, sale, onClose }) {
         ) : (
           <Stack spacing={2}>
             {entries.map(([fieldKey, entry]) => (
-              <AnalysisCard key={fieldKey} fieldKey={fieldKey} entry={entry} />
+              <AnalysisCard
+                key={fieldKey}
+                fieldKey={fieldKey}
+                entry={entry}
+                saleId={sale?.sale_id}
+                accessToken={accessToken}
+              />
             ))}
           </Stack>
         )}

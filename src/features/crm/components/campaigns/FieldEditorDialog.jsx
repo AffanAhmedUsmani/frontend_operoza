@@ -16,6 +16,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { MdClose, MdDragIndicator } from "react-icons/md";
 
 export const FIELD_TYPES = [
@@ -106,6 +107,7 @@ export default function FieldEditorDialog({
   onSave,
   onClose,
 }) {
+  const theme = useTheme();
   const [field, setField] = useState(initial || { ...EMPTY_FIELD });
   const [keyTouched, setKeyTouched] = useState(false);
   const [errors, setErrors] = useState({});
@@ -358,7 +360,7 @@ export default function FieldEditorDialog({
                 <Typography variant="caption" color="text.secondary">Questionnaire checks (drag to reorder)</Typography>
 
                 <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 0.75 }}>
-                  <Box sx={{ flex: 1, border: "1px solid #ead8c4", borderRadius: 2, p: 1 }}>
+                  <Box sx={{ flex: 1, border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1 }}>
                     <Typography variant="caption" sx={{ fontWeight: 700 }}>Available checks</Typography>
                     <Stack spacing={0.5} sx={{ mt: 0.75, maxHeight: 220, overflow: "auto" }}>
                       {AUDIO_CHECK_LIBRARY.map((group) => (
@@ -377,11 +379,11 @@ export default function FieldEditorDialog({
                                   mt: 0.4,
                                   px: 1,
                                   py: 0.55,
-                                  border: "1px solid #e8d8c8",
+                                  border: "1px solid", borderColor: "divider",
                                   borderRadius: 1.2,
                                   fontSize: 13,
                                   cursor: "grab",
-                                  "&:hover": { bgcolor: "#fcf6ef" },
+                                  "&:hover": { bgcolor: "brand.subtle" },
                                 }}
                               >
                                 {item.label}
@@ -393,7 +395,7 @@ export default function FieldEditorDialog({
                   </Box>
 
                   <Box
-                    sx={{ flex: 1, border: "1px solid #ead8c4", borderRadius: 2, p: 1 }}
+                    sx={{ flex: 1, border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1 }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => {
                       if (!draggedCheckId) return;
@@ -432,13 +434,13 @@ export default function FieldEditorDialog({
                             sx={{
                               px: 0.75,
                               py: 0.45,
-                              border: "1px solid #e8d8c8",
+                              border: "1px solid", borderColor: "divider",
                               borderRadius: 1.2,
                               cursor: "grab",
-                              bgcolor: "#fff",
+                              bgcolor: "background.paper",
                             }}
                           >
-                            <MdDragIndicator size={16} color="#8a8a8a" />
+                            <MdDragIndicator size={16} color={theme.palette.text.disabled} />
                             <Typography variant="body2" sx={{ flex: 1 }}>
                               {CHECK_LABEL_MAP[checkId] || checkId}
                             </Typography>

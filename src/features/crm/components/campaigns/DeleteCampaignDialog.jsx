@@ -14,10 +14,12 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { MdDeleteForever, MdVisibility, MdVisibilityOff, MdWarning } from "react-icons/md";
 import { deleteCampaign } from "../../services/campaignService";
 
 export default function DeleteCampaignDialog({ open, campaign, accessToken, onDeleted, onClose }) {
+  const theme = useTheme();
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [step, setStep] = useState("confirm"); // "confirm" | "password"
@@ -61,7 +63,7 @@ export default function DeleteCampaignDialog({ open, campaign, accessToken, onDe
     <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="xs" fullWidth>
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <MdDeleteForever size={22} color="#d32f2f" />
+          <MdDeleteForever size={22} color={theme.palette.error.main} />
           <Typography variant="h6" component="span" color="error.main">
             Delete Campaign
           </Typography>
@@ -72,7 +74,7 @@ export default function DeleteCampaignDialog({ open, campaign, accessToken, onDe
         {step === "confirm" ? (
           <Stack spacing={2}>
             <Stack direction="row" spacing={1.5} alignItems="flex-start">
-              <MdWarning size={22} color="#f57c00" style={{ marginTop: 2, flexShrink: 0 }} />
+              <MdWarning size={22} color={theme.palette.warning.main} style={{ marginTop: 2, flexShrink: 0 }} />
               <Typography variant="body2">
                 Are you sure you want to delete{" "}
                 <strong>&ldquo;{campaign.name}&rdquo;</strong>?

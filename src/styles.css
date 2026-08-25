@@ -1,4 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap");
+/* Plus Jakarta Sans is loaded from index.html's <head> via <link
+   rel="preconnect"> + <link rel="stylesheet"> instead of an @import
+   here - a same-file CSS @import is render-blocking (the browser can't
+   even start fetching the font stylesheet until it has already
+   downloaded and parsed this whole file first), while a <link> in the
+   document head is discovered and fetched in parallel from the very
+   start of the page load. theme.js's fontFamily stack still falls back
+   to "Segoe UI"/sans-serif immediately, so text is never invisible
+   while the webfont loads either way. */
 
 :root {
   --ink: #1d1813;
@@ -34,9 +42,11 @@ body {
 
 .feature-card,
 .testimonial-card {
+  position: relative;
   border: 1px solid #ead8c4;
   box-shadow: var(--card-shadow);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
+  overflow: hidden;
 }
 
 .feature-card:hover,
@@ -45,8 +55,103 @@ body {
   box-shadow: 0 22px 45px rgba(79, 42, 17, 0.18);
 }
 
+/* Public-website UI/UX revamp - the Features hub's "wow effect": a
+   gradient accent bar sweeps in from the left on hover, the icon badge
+   bounces/rotates slightly, and the "Learn more" arrow slides forward -
+   layered on top of the existing lift+shadow so a plain bordered card
+   reads as alive rather than static. */
+.feature-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #c05314, #f58a3c);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.3s ease;
+}
+
+.feature-card:hover::before {
+  transform: scaleY(1);
+}
+
+.feature-card-icon {
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.feature-card:hover .feature-card-icon {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+.feature-card-arrow {
+  transition: transform 0.25s ease;
+}
+
+.feature-card:hover .feature-card-arrow {
+  transform: translateX(5px);
+}
+
+/* Campaigns hub panel (CampaignPanel.jsx) - deliberately not a bordered
+   Card. A left accent bar grows on hover instead of a border, paired
+   with a lift+glow and the same icon/arrow motion as the Features hub
+   for a consistent, eye-catching interaction language. */
+.campaign-panel {
+  box-shadow: 0 2px 10px rgba(79, 42, 17, 0.06);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+.campaign-panel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: linear-gradient(180deg, #c05314, #f58a3c);
+  transition: width 0.25s ease;
+}
+
+.campaign-panel:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(79, 42, 17, 0.16);
+}
+
+.campaign-panel:hover::before {
+  width: 8px;
+}
+
+.campaign-panel-icon {
+  transition: transform 0.3s ease;
+}
+
+.campaign-panel:hover .campaign-panel-icon {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+.campaign-panel-arrow {
+  transition: transform 0.25s ease;
+}
+
+.campaign-panel:hover .campaign-panel-arrow {
+  transform: translateX(5px);
+}
+
 .pulse-cta {
   animation: pulse 2s ease infinite;
+}
+
+/* Public-website UI/UX revamp - a bold gradient-clipped headline
+   treatment for one key phrase per hero, matching the logo's own
+   orange gradient. Dashboards don't do gradient display type; this is
+   one of the cheapest signals that a page is a marketing page. */
+.gradient-text {
+  background: linear-gradient(120deg, #c05314, #f58a3c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 .fade-up {

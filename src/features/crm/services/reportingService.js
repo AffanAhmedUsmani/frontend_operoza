@@ -59,6 +59,22 @@ export async function executeReport(accessToken, reportId, runtimeFilters = {}) 
   });
 }
 
+export async function summarizeReport(accessToken, reportId, runtimeFilters = {}) {
+  return apiRequest(`/api/crm/reports/${reportId}/summarize`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ runtime_filters: runtimeFilters }),
+  });
+}
+
+export async function updateReportSchedule(accessToken, reportId, payload) {
+  return apiRequest(`/api/crm/reports/${reportId}/schedule`, {
+    method: "PUT",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function validateReportConfig(accessToken, payload) {
   return apiRequest("/api/crm/reports/validate-config", {
     method: "POST",

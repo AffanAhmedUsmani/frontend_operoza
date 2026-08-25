@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import {
   Alert,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
   MenuItem,
   Stack,
   Table,
@@ -14,6 +18,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
@@ -23,7 +28,18 @@ import {
   exportAttendanceCsv,
   fetchAttendanceReport,
 } from "../services/attendanceService";
+import { useCampaigns } from "../hooks/useCampaigns";
 import { resolveActorContext, ADMIN_ROLES } from "./sales/salesFormUtils";
+
+// Sprint 5 (docs/SPRINT_PLAN.md) - one message per check-in rejection code,
+// matching the specific-reason contract the 3-stage backend validation
+// (campaign assignment -> shift window -> IP allowlist) guarantees.
+const CHECK_IN_ERROR_MESSAGES = {
+  not_assigned: "You are not assigned to any campaign - contact your admin.",
+  shift_window_closed: "Too late to check in for this shift - contact your manager.",
+  shift_ended: "Shift for this campaign has already ended for today.",
+  ip_blocked: "Access blocked: your current network is not authorized for this shift.",
+};
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -39,11 +55,24 @@ function monthEndIso() {
   return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 }
 
-function prettyDateTime(value) {
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Sprint 5 (docs/SPRINT_PLAN.md) - a check-in's "on time"/"late"
+// classification is decided server-side against the campaign's
+// configured shift_timezone_code (general guide §9), so displaying that
+// same timestamp in the viewer's browser-local time here would show a
+// different, potentially confusing hour. When the row's campaign has a
+// known timezone, render in that timezone (labelled) instead of relying
+// on the browser's local one.
+function prettyDateTime(value, timezoneCode) {
   if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleString();
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return String(value);
+  if (timezoneCode) {
+    return `${parsed.tz(timezoneCode).format("YYYY-MM-DD HH:mm")} (${timezoneCode})`;
+  }
+  return parsed.format("YYYY-MM-DD HH:mm:ss");
 }
 
 function minutesToHours(value) {
@@ -72,6 +101,22 @@ export default function AttendancePanel({ accessToken, users = [] }) {
   });
 
   const selectedUserId = isAdmin ? filters.userId : actorUserId;
+
+  // Sprint 5: only needed to resolve which campaign's shift a check-in
+  // belongs to when the agent has more than one assignment - most agents
+  // have exactly one, and the backend auto-resolves that case without any
+  // of this ever needing to render.
+  const { campaigns } = useCampaigns(accessToken);
+  const [checkInCampaignId, setCheckInCampaignId] = useState("");
+  const [needsCampaignChoice, setNeedsCampaignChoice] = useState(false);
+
+  const campaignTimezoneById = useMemo(() => {
+    const map = {};
+    for (const c of campaigns) {
+      if (c.shift_timezone_code) map[c.campaign_id] = c.shift_timezone_code;
+    }
+    return map;
+  }, [campaigns]);
 
   const loadReport = useCallback(async () => {
     if (!accessToken) return;
@@ -122,16 +167,27 @@ export default function AttendancePanel({ accessToken, users = [] }) {
     setSuccess("");
     setWarning("");
 
+    const payload = selectedUserId ? { user_id: selectedUserId } : {};
+    if (checkInCampaignId) {
+      payload.campaign_id = checkInCampaignId;
+    }
+
     try {
-      const attendance = await checkIn(accessToken, selectedUserId ? { user_id: selectedUserId } : {});
+      const attendance = await checkIn(accessToken, payload);
       if (attendance?.attendance_id) {
         setHighlightAttendanceId(attendance.attendance_id);
       }
-      setSuccess("Check-in recorded successfully.");
+      setNeedsCampaignChoice(false);
+      const isLate = attendance?.exception_type === "late";
+      setSuccess(
+        isLate
+          ? `Check-in recorded, marked late: ${attendance.exception_note}`
+          : "Check-in recorded successfully."
+      );
       await loadReport();
     } catch (err) {
       if (err?.status === 409) {
-        const existingAttendance = err?.attendance;
+        const existingAttendance = err?.data?.attendance;
         if (existingAttendance?.attendance_id) {
           setHighlightAttendanceId(existingAttendance.attendance_id);
         }
@@ -139,7 +195,13 @@ export default function AttendancePanel({ accessToken, users = [] }) {
         await loadReport();
         return;
       }
-      setError(err.message || "Check-in failed.");
+      const code = err?.data?.code;
+      if (code === "ambiguous_campaign") {
+        setNeedsCampaignChoice(true);
+        setError("You're assigned to multiple campaigns - choose which one you're checking into.");
+        return;
+      }
+      setError(CHECK_IN_ERROR_MESSAGES[code] || err.message || "Check-in failed.");
     }
   };
 
@@ -150,9 +212,15 @@ export default function AttendancePanel({ accessToken, users = [] }) {
     setWarning("");
 
     try {
+      // work_date is intentionally omitted: this button always means
+      // "close my current open session", not "close a session for some
+      // specific historical date" - the backend already resolves that as
+      // the most recent open check-in with no filter at all. Passing the
+      // report filter's end-date here (a real bug this E2E test caught)
+      // meant check-out 404'd on every day except the last day of the
+      // displayed month, since that end-date almost never equals today.
       const attendance = await checkOut(accessToken, {
         user_id: selectedUserId || undefined,
-        work_date: filters.endDate || undefined,
       });
       if (attendance?.attendance_id) {
         setHighlightAttendanceId(attendance.attendance_id);
@@ -192,11 +260,11 @@ export default function AttendancePanel({ accessToken, users = [] }) {
       {success ? <Alert severity="success">{success}</Alert> : null}
       {warning ? <Alert severity="warning">{warning}</Alert> : null}
 
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Typography variant="h6">Latest Attendance Event</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
-            Type: {latestEventType} | Time: {prettyDateTime(latestEventAt)}
+            Type: {latestEventType} | Time: {prettyDateTime(latestEventAt, campaignTimezoneById[latestRow?.campaign_id])}
           </Typography>
           <Typography color="text.secondary">
             Date: {latestRow?.work_date || "-"} | Status: {latestRow?.status_code || "-"}
@@ -204,7 +272,7 @@ export default function AttendancePanel({ accessToken, users = [] }) {
         </CardContent>
       </Card>
 
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Typography variant="h6" sx={{ mb: 2 }}>Attendance Controls</Typography>
           <Box
@@ -252,15 +320,36 @@ export default function AttendancePanel({ accessToken, users = [] }) {
             </Button>
           </Box>
 
+          {needsCampaignChoice ? (
+            <TextField
+              label="Which campaign are you checking into?"
+              select
+              value={checkInCampaignId}
+              onChange={(e) => setCheckInCampaignId(e.target.value)}
+              sx={{ mb: 1.5, minWidth: 260 }}
+            >
+              <MenuItem value="">Select a campaign</MenuItem>
+              {campaigns.map((c) => (
+                <MenuItem key={c.campaign_id} value={c.campaign_id}>{c.name}</MenuItem>
+              ))}
+            </TextField>
+          ) : null}
+
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2}>
-            <Button variant="contained" onClick={handleCheckIn} disabled={loading}>Check In</Button>
-            <Button variant="contained" color="warning" onClick={handleCheckOut} disabled={loading}>Check Out</Button>
+            <Button
+              variant="contained"
+              onClick={handleCheckIn}
+              disabled={loading || (needsCampaignChoice && !checkInCampaignId)}
+            >
+              Check In
+            </Button>
+            <Button variant="contained" color="secondary" onClick={handleCheckOut} disabled={loading}>Check Out</Button>
             <Button variant="text" onClick={handleExportCsv} disabled={loading}>Export CSV</Button>
           </Stack>
         </CardContent>
       </Card>
 
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Typography variant="h6">Attendance Summary</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
@@ -272,7 +361,7 @@ export default function AttendancePanel({ accessToken, users = [] }) {
         </CardContent>
       </Card>
 
-      <Card sx={{ border: "1px solid #ead8c4" }}>
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Typography variant="h6" sx={{ mb: 1.5 }}>Attendance Records</Typography>
           <TableContainer>
@@ -286,12 +375,13 @@ export default function AttendancePanel({ accessToken, users = [] }) {
                   <TableCell>Total Minutes</TableCell>
                   <TableCell>Total Hours</TableCell>
                   <TableCell>Status</TableCell>
+                  <TableCell>Exception</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <Typography color="text.secondary">No attendance records found for selected filters.</Typography>
                     </TableCell>
                   </TableRow>
@@ -318,11 +408,24 @@ export default function AttendancePanel({ accessToken, users = [] }) {
                       >
                         <TableCell>{row.work_date}</TableCell>
                         <TableCell>{name}</TableCell>
-                        <TableCell>{prettyDateTime(row.check_in_at)}</TableCell>
-                        <TableCell>{prettyDateTime(row.check_out_at)}</TableCell>
+                        <TableCell>{prettyDateTime(row.check_in_at, campaignTimezoneById[row.campaign_id])}</TableCell>
+                        <TableCell>{prettyDateTime(row.check_out_at, campaignTimezoneById[row.campaign_id])}</TableCell>
                         <TableCell>{row.total_minutes || 0}</TableCell>
                         <TableCell>{minutesToHours(row.total_minutes)}</TableCell>
                         <TableCell>{row.status_code}</TableCell>
+                        <TableCell>
+                          {row.exception_type ? (
+                            <Tooltip title={row.exception_note || ""}>
+                              <Chip
+                                label={row.exception_type.replace("_", " ")}
+                                size="small"
+                                color={row.exception_type.startsWith("approved") ? "success" : "warning"}
+                              />
+                            </Tooltip>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })

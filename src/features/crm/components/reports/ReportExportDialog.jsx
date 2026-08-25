@@ -85,6 +85,7 @@ export default function ReportExportDialog({ open, onClose, accessToken, report 
             >
               <MenuItem value="csv">CSV</MenuItem>
               <MenuItem value="xlsx">XLSX</MenuItem>
+              <MenuItem value="pdf">PDF</MenuItem>
             </Select>
           </FormControl>
 

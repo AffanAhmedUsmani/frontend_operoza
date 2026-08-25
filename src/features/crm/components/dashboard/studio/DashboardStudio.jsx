@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Box, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
+import { Box, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button, Snackbar, Alert } from "@mui/material";
 import StudioToolbar from "./StudioToolbar";
 import WidgetPalette from "./WidgetPalette";
 import GridCanvas from "./GridCanvas";
@@ -38,11 +38,13 @@ function DashboardStudio({
   const [selectedWidget, setSelectedWidget] = useState(null);
   const [selectedPaletteType, setSelectedPaletteType] = useState(null);
   const [isDragSource, setIsDragSource] = useState(null);
+  const [draggedType, setDraggedType] = useState(null); // Sprint 19: real preview-on-drop
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveDraftLoading, setSaveDraftLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [historyStack, setHistoryStack] = useState([initialWidgets]); // For undo
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [snackbar, setSnackbar] = useState(null); // { message, severity }
 
   useEffect(() => {
     setWidgets(initialWidgets);
@@ -68,6 +70,20 @@ function DashboardStudio({
   }, [historyIndex, historyStack]);
 
   const canUndo = historyIndex > 0;
+
+  // Sprint 19 (docs/SPRINT_PLAN.md): redo was previously only a section
+  // comment - pushToHistory already truncates "future" entries on a new
+  // branch (the standard undo/redo stack shape), so redo is just walking
+  // forward through historyStack the same way undo walks backward.
+  const handleRedo = useCallback(() => {
+    if (historyIndex < historyStack.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setWidgets(historyStack[historyIndex + 1]);
+      setSelectedWidget(null);
+    }
+  }, [historyIndex, historyStack]);
+
+  const canRedo = historyIndex < historyStack.length - 1;
 
   const pushToHistory = (newWidgets) => {
     // Trim any "future" history if we've branched
@@ -124,9 +140,10 @@ function DashboardStudio({
       setHistoryStack([widgets]);
       setHistoryIndex(0);
       setHasChanges(false);
+      setSnackbar({ message: "Dashboard saved.", severity: "success" });
     } catch (err) {
       console.error("Save failed:", err);
-      // Error handling is upstream
+      setSnackbar({ message: err.message || "Failed to save dashboard.", severity: "error" });
     } finally {
       setSaveLoading(false);
     }
@@ -135,10 +152,16 @@ function DashboardStudio({
   const handleSaveDraft = async () => {
     setSaveDraftLoading(true);
     try {
+      // Sprint 19 (docs/SPRINT_PLAN.md): previously localStorage-only plus
+      // a blocking window.alert() - onSaveDraft is now a real backend
+      // call (DashboardBuilderPanel.jsx persists it via dashboardService),
+      // confirmed here with a non-blocking Snackbar instead.
       await onSaveDraft(widgets, { draftAt: new Date().toISOString() });
       setHasChanges(false);
+      setSnackbar({ message: "Draft saved - not yet published.", severity: "success" });
     } catch (err) {
       console.error("Save draft failed:", err);
+      setSnackbar({ message: err.message || "Failed to save draft.", severity: "error" });
     } finally {
       setSaveDraftLoading(false);
     }
@@ -157,6 +180,8 @@ function DashboardStudio({
         onCancel={onCancel}
         onUndo={handleUndo}
         canUndo={canUndo}
+        onRedo={handleRedo}
+        canRedo={canRedo}
       />
 
       {/* Three-column layout: Palette | Canvas | Properties */}
@@ -168,6 +193,8 @@ function DashboardStudio({
             // Auto-add on select (optional: user can click button instead)
           }}
           selectedType={selectedPaletteType}
+          onWidgetDragStart={setDraggedType}
+          onWidgetDragEnd={() => setDraggedType(null)}
         />
 
         {/* Center: 3-Column Grid Canvas */}
@@ -180,6 +207,7 @@ function DashboardStudio({
           onUpdateWidget={handleUpdateWidget}
           onAddWidget={handleAddWidget}
           isDragSource={isDragSource}
+          draggedType={draggedType}
         />
 
         {/* Right: Properties Panel - Progressive Disclosure */}
@@ -196,16 +224,29 @@ function DashboardStudio({
         sx={{
           textAlign: "center",
           p: 1.5,
-          bgcolor: "#f5ece0",
+          bgcolor: "brand.subtle",
           borderRadius: 1,
-          border: "1px solid #ead8c4",
+          border: "1px solid", borderColor: "divider",
           fontSize: "0.75rem",
-          color: "#999",
+          color: "text.disabled",
         }}
       >
         💡 <strong>Pro tip:</strong> Drag widgets to reorder or from the palette to add.
-        Changes are tracked in history (Undo available).
+        Changes are tracked in history (Undo/Redo available).
       </Box>
+
+      <Snackbar
+        open={Boolean(snackbar)}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {snackbar ? (
+          <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)} sx={{ width: "100%" }}>
+            {snackbar.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </Stack>
   );
 }

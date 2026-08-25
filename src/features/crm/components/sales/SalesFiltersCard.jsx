@@ -2,7 +2,7 @@ import { Box, Button, Card, CardContent, MenuItem, TextField } from "@mui/materi
 
 export default function SalesFiltersCard({ filters, setFilters, campaigns, users, saleStatuses, dynamicFields, onApply, canFilterByAgent }) {
   return (
-    <Card sx={{ border: "1px solid #ead8c4" }}>
+    <Card sx={{ border: "1px solid", borderColor: "divider" }}>
       <CardContent>
         <Box
           sx={{

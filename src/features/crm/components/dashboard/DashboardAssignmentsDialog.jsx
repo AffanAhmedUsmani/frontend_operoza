@@ -63,7 +63,10 @@ function DashboardAssignmentsDialog({ accessToken, dashboard, open, onClose }) {
   }, [open, accessToken, dashboard?.dashboard_id]);
 
   const roleLabel = (roleCode) => enabledRoles.find((item) => item.role_code === roleCode)?.display_name || roleCode;
-  const userLabel = (userId) => users.find((item) => item.user_id === userId)?.display_name || userId;
+  // "Unknown User" - never the raw UUID (general guide §15.5) - a
+  // fallback needed when the assignee has since been deactivated and no
+  // longer appears in the active-users list this dialog fetches.
+  const userLabel = (userId) => users.find((item) => item.user_id === userId)?.display_name || "Unknown User";
 
   const handleAssign = async () => {
     setError("");
@@ -177,7 +180,7 @@ function DashboardAssignmentsDialog({ accessToken, dashboard, open, onClose }) {
                     direction="row"
                     justifyContent="space-between"
                     alignItems="center"
-                    sx={{ border: "1px solid #ead8c4", borderRadius: 2, px: 1.5, py: 1 }}
+                    sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, px: 1.5, py: 1 }}
                   >
                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                       <Chip

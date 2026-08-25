@@ -9,9 +9,11 @@ import {
   IconButton,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { MdExpandMore, MdAdd } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 import { WIDGET_LIBRARY, getWidgetsByCategory, getWidgetCategories } from "./widgetLibrary";
 
 /**
@@ -21,10 +23,14 @@ import { WIDGET_LIBRARY, getWidgetsByCategory, getWidgetCategories } from "./wid
  * Jakob's Law: Familiar card-based interaction pattern
  * 
  * Props:
- *   onWidgetSelect — (widgetType) => void
- *   selectedType   — currently selected widget type (highlights active)
+ *   onWidgetSelect  — (widgetType) => void
+ *   selectedType    — currently selected widget type (highlights active)
+ *   onWidgetDragStart — (widgetType) => void, so the canvas can render a
+ *                     real preview of what's being dragged (Sprint 19)
+ *   onWidgetDragEnd   — () => void
  */
-function WidgetPalette({ onWidgetSelect, selectedType }) {
+function WidgetPalette({ onWidgetSelect, selectedType, onWidgetDragStart, onWidgetDragEnd }) {
+  const theme = useTheme();
   const [expandedCategories, setExpandedCategories] = useState(
     new Set(getWidgetCategories()) // Start all expanded
   );
@@ -43,15 +49,15 @@ function WidgetPalette({ onWidgetSelect, selectedType }) {
         width: 280,
         maxHeight: "70vh",
         overflow: "auto",
-        bgcolor: "#faf6f0",
-        border: "1px solid #ead8c4",
+        bgcolor: "brand.subtle",
+        border: "1px solid", borderColor: "divider",
         borderRadius: 2,
         display: "flex",
         flexDirection: "column",
       }}
     >
       {/* Header */}
-      <Box sx={{ p: 2, bgcolor: "#f5ece0", borderBottom: "1px solid #ead8c4" }}>
+      <Box sx={{ p: 2, bgcolor: "brand.subtle", borderBottom: "1px solid", borderBottomColor: "divider" }}>
         <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
           📦 Widget Library
         </Typography>
@@ -74,10 +80,11 @@ function WidgetPalette({ onWidgetSelect, selectedType }) {
                   display: "flex",
                   alignItems: "center",
                   p: 1.5,
-                  bgcolor: "#faf6f0",
+                  bgcolor: "brand.subtle",
                   cursor: "pointer",
-                  "&:hover": { bgcolor: "#f5ece0" },
-                  borderBottom: "1px solid #ead8c4",
+                  "&:hover": { bgcolor: "action.hover" },
+                  borderBottom: "1px solid",
+                  borderBottomColor: "divider",
                 }}
                 onClick={() => toggleCategory(category)}
               >
@@ -95,7 +102,7 @@ function WidgetPalette({ onWidgetSelect, selectedType }) {
                 </Typography>
                 <Typography
                   variant="caption"
-                  sx={{ fontSize: "0.65rem", color: "#999" }}
+                  sx={{ fontSize: "0.65rem", color: "text.disabled" }}
                 >
                   {widgets.length}
                 </Typography>
@@ -105,22 +112,30 @@ function WidgetPalette({ onWidgetSelect, selectedType }) {
               <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                 <Stack spacing={0.75} sx={{ p: 1 }}>
                   {widgets.map((widget) => (
-                    <Card
+                    <Tooltip
                       key={widget.type}
+                      title={widget.useCase || widget.description}
+                      placement="right"
+                      arrow
+                      enterDelay={400}
+                    >
+                    <Card
                       onClick={() => onWidgetSelect(widget.type)}
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.effectAllowed = "copy";
                         e.dataTransfer.setData("widget-type", widget.type);
+                        onWidgetDragStart?.(widget.type);
                       }}
+                      onDragEnd={() => onWidgetDragEnd?.()}
                       sx={{
                         cursor: "grab",
                         border:
                           selectedType === widget.type
                             ? "2px solid"
-                            : "1px solid #ead8c4",
+                            : "1px solid",
                         borderColor:
-                          selectedType === widget.type ? "primary.main" : "#ead8c4",
+                          selectedType === widget.type ? "primary.main" : "divider",
                         bgcolor:
                           selectedType === widget.type ? "action.selected" : "transparent",
                         transition: "all 0.15s ease",
@@ -153,7 +168,7 @@ function WidgetPalette({ onWidgetSelect, selectedType }) {
                             >
                               {widget.name}
                             </Typography>
-                            <MdAdd size={14} color="#999" />
+                            <MdAdd size={14} color={theme.palette.text.disabled} />
                           </Box>
                           <Typography
                             variant="caption"
@@ -165,6 +180,7 @@ function WidgetPalette({ onWidgetSelect, selectedType }) {
                         </Stack>
                       </CardActionArea>
                     </Card>
+                    </Tooltip>
                   ))}
                 </Stack>
               </Collapse>
@@ -177,10 +193,11 @@ function WidgetPalette({ onWidgetSelect, selectedType }) {
       <Box
         sx={{
           p: 1.5,
-          bgcolor: "#f5ece0",
-          borderTop: "1px solid #ead8c4",
+          bgcolor: "brand.subtle",
+          borderTop: "1px solid",
+          borderTopColor: "divider",
           fontSize: "0.7rem",
-          color: "#999",
+          color: "text.disabled",
           textAlign: "center",
           fontStyle: "italic",
         }}

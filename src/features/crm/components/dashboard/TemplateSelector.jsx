@@ -94,7 +94,7 @@ function TemplateSelector({ open, onClose, onCreateFromTemplate, campaignId, loa
                     sx={{
                       cursor: "pointer",
                       border: selectedTemplate?.name === template.name ? "2px solid" : "1px solid",
-                      borderColor: selectedTemplate?.name === template.name ? "primary.main" : "#ead8c4",
+                      borderColor: selectedTemplate?.name === template.name ? "primary.main" : "divider",
                       bgcolor: selectedTemplate?.name === template.name ? "action.selected" : "transparent",
                       transition: "all 0.2s ease",
                       "&:hover": {

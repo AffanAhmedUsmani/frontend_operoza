@@ -6,7 +6,17 @@ function saveSession(session) {
 
 function loadSession() {
   const raw = sessionStorage.getItem(SESSION_KEY);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const session = JSON.parse(raw);
+    return session && typeof session === "object" ? session : null;
+  } catch (_) {
+    sessionStorage.removeItem(SESSION_KEY);
+    return null;
+  }
 }
 
 function clearSession() {

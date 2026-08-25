@@ -7,6 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MdCheckCircle, MdWarning } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 
 /**
  * TargetWidget — Compares actual performance against target goal.
@@ -14,6 +15,7 @@ import { MdCheckCircle, MdWarning } from "react-icons/md";
  * Single responsibility: render target/actual comparison.
  */
 export function TargetWidget({ widget }) {
+  const theme = useTheme();
   if (widget.error) {
     return <Alert severity="warning" sx={{ mt: 1 }}>{widget.error}</Alert>;
   }
@@ -24,31 +26,33 @@ export function TargetWidget({ widget }) {
   const percentToTarget = widget.percent_to_target || 0;
   const onTrack = widget.on_track === true;
 
+  const currencyCode = widget.currency_code || "USD";
+
   const varianceFormatted = useMemo(() => {
     const fmt = new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currencyCode,
       signDisplay: "always",
       maximumFractionDigits: 2,
     }).format(variance);
     return fmt;
-  }, [variance]);
+  }, [variance, currencyCode]);
 
   const actualFormatted = useMemo(() => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currencyCode,
       maximumFractionDigits: 2,
     }).format(actual);
-  }, [actual]);
+  }, [actual, currencyCode]);
 
   const targetFormatted = useMemo(() => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currencyCode,
       maximumFractionDigits: 2,
     }).format(target);
-  }, [target]);
+  }, [target, currencyCode]);
 
   return (
     <Stack spacing={2}>
@@ -56,14 +60,14 @@ export function TargetWidget({ widget }) {
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         {onTrack ? (
           <>
-            <MdCheckCircle size={24} color="#2e7d32" />
+            <MdCheckCircle size={24} color={theme.palette.success.main} />
             <Typography variant="subtitle2" fontWeight={700} color="success.dark">
               On Track
             </Typography>
           </>
         ) : (
           <>
-            <MdWarning size={24} color="#d32f2f" />
+            <MdWarning size={24} color={theme.palette.error.main} />
             <Typography variant="subtitle2" fontWeight={700} color="error.dark">
               Below Target
             </Typography>
@@ -89,12 +93,12 @@ export function TargetWidget({ widget }) {
           sx={{
             height: 8,
             borderRadius: 4,
-            bgcolor: "#f5ece0",
+            bgcolor: "brand.subtle",
             "& .MuiLinearProgress-bar": {
               borderRadius: 4,
               background: onTrack
-                ? "linear-gradient(90deg, #0f8a7a 0%, #45b8ab 100%)"
-                : "linear-gradient(90deg, #f57c00 0%, #ffb74d 100%)",
+                ? `linear-gradient(90deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.light} 100%)`
+                : `linear-gradient(90deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.light} 100%)`,
             },
           }}
           aria-label={`Progress to target: ${percentToTarget}%`}

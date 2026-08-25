@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MdAttachMoney } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 
 /**
  * CommissionWidget — Shows earnings breakdown by agent or total.
@@ -21,6 +22,7 @@ import { MdAttachMoney } from "react-icons/md";
  * Progressive disclosure: by_agent sorted by total descending.
  */
 export function CommissionWidget({ widget }) {
+  const theme = useTheme();
   if (widget.error) {
     return <Alert severity="warning" sx={{ mt: 1 }}>{widget.error}</Alert>;
   }
@@ -29,10 +31,10 @@ export function CommissionWidget({ widget }) {
     const val = parseFloat(widget.total || 0);
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: widget.currency_code || "USD",
       maximumFractionDigits: 2,
     }).format(val);
-  }, [widget.total]);
+  }, [widget.total, widget.currency_code]);
 
   const agentRows = useMemo(() => {
     if (!widget.by_agent || widget.by_agent.length === 0) return [];
@@ -41,11 +43,11 @@ export function CommissionWidget({ widget }) {
       rank: idx + 1,
       formatted: new Intl.NumberFormat("en-US", {
         style: "currency",
-        currency: "USD",
+        currency: widget.currency_code || "USD",
         maximumFractionDigits: 2,
       }).format(parseFloat(row.total || 0)),
     }));
-  }, [widget.by_agent]);
+  }, [widget.by_agent, widget.currency_code]);
 
   const showBreakdown = widget.by_agent && widget.by_agent.length > 0;
 
@@ -53,7 +55,7 @@ export function CommissionWidget({ widget }) {
     <Stack spacing={2}>
       {/* Primacy: total commission first (Jakob's Law) */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        <MdAttachMoney size={24} color="#0f8a7a" />
+        <MdAttachMoney size={24} color={theme.palette.secondary.main} />
         <Stack spacing={0}>
           <Typography variant="overline" sx={{ letterSpacing: "0.08em", color: "text.secondary", fontSize: "0.7rem" }}>
             Total Commission
@@ -74,10 +76,10 @@ export function CommissionWidget({ widget }) {
               By Agent ({agentRows.length})
             </Typography>
 
-            <TableContainer sx={{ borderRadius: 1, border: "1px solid #ead8c4", maxHeight: 250, overflowY: "auto" }}>
+            <TableContainer sx={{ borderRadius: 1, border: "1px solid", borderColor: "divider", maxHeight: 250, overflowY: "auto" }}>
               <Table size="small" stickyHeader aria-label="Commission breakdown by agent">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: "#fffaf3" }}>
+                  <TableRow sx={{ bgcolor: "brand.subtle" }}>
                     <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Agent</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Amount</TableCell>
                   </TableRow>

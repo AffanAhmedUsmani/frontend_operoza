@@ -7,44 +7,24 @@ function authHeaders(accessToken) {
 }
 
 async function checkIn(accessToken, payload = {}) {
-  const response = await fetch(`${API_BASE_URL}/api/crm/attendance/check-in`, {
+  // Routed through apiRequest (not a raw fetch) so a token that expires
+  // right at shift start - a realistic collision, not a corner case - gets
+  // silently refreshed and retried instead of surfacing as "Check-in
+  // failed" to someone who is, in fact, still logged in.
+  const data = await apiRequest("/api/crm/attendance/check-in", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(accessToken),
-    },
+    headers: authHeaders(accessToken),
     body: JSON.stringify(payload),
   });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const err = new Error(data.error || "Check-in failed");
-    err.status = response.status;
-    err.attendance = data.attendance || null;
-    throw err;
-  }
-
   return data.attendance || data;
 }
 
 async function checkOut(accessToken, payload = {}) {
-  const response = await fetch(`${API_BASE_URL}/api/crm/attendance/check-out`, {
+  const data = await apiRequest("/api/crm/attendance/check-out", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(accessToken),
-    },
+    headers: authHeaders(accessToken),
     body: JSON.stringify(payload),
   });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const err = new Error(data.error || "Check-out failed");
-    err.status = response.status;
-    err.attendance = data.attendance || null;
-    throw err;
-  }
-
   return data.attendance || data;
 }
 

@@ -267,7 +267,7 @@ function WidgetFormDialog({ open, initialData, campaign = null, onClose, onSubmi
                   sx={{
                     maxHeight: 200,
                     overflowY: "auto",
-                    border: "1px solid #ead8c4",
+                    border: "1px solid", borderColor: "divider",
                     borderRadius: 1.5,
                     px: 1.5,
                     py: 0.5,

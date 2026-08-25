@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Paper, Typography } from "@mui/material";
 import GridCell from "./GridCell";
-import { createNewWidget } from "./widgetLibrary";
+import { createNewWidget, WIDGET_LIBRARY } from "./widgetLibrary";
 
 /**
  * GridCanvas — Center: 3-column responsive grid with drag-drop
@@ -18,6 +18,9 @@ import { createNewWidget } from "./widgetLibrary";
  *   onUpdateWidget   — (widget) => void (for reordering/resizing)
  *   onAddWidget      — (widget) => void (new widget added to canvas)
  *   isDragSource     — widget_id being dragged
+ *   draggedType      — widget type string currently being dragged from the
+ *                      palette (Sprint 19 - docs/SPRINT_PLAN.md's widget
+ *                      preview-on-drop), or null when nothing is
  */
 function GridCanvas({
   widgets,
@@ -28,17 +31,20 @@ function GridCanvas({
   onUpdateWidget,
   onAddWidget,
   isDragSource,
+  draggedType,
 }) {
-  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const draggedMeta = draggedType ? WIDGET_LIBRARY.find((w) => w.type === draggedType) : null;
 
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
+    if (!isDragOver) setIsDragOver(true);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    setDragOverIndex(null);
+    setIsDragOver(false);
 
     const widgetType = e.dataTransfer.getData("widget-type");
     if (widgetType) {
@@ -50,7 +56,7 @@ function GridCanvas({
   };
 
   const handleDragEnd = () => {
-    setDragOverIndex(null);
+    setIsDragOver(false);
   };
 
   if (widgets.length === 0) {
@@ -58,14 +64,17 @@ function GridCanvas({
       <Paper
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        onDragLeave={() => setIsDragOver(false)}
+        onDragEnd={handleDragEnd}
         sx={{
           flex: 1,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           minHeight: 400,
-          bgcolor: "#faf6f0",
-          border: "2px dashed #ead8c4",
+          bgcolor: "brand.subtle",
+          border: "2px dashed",
+          borderColor: isDragOver ? "primary.main" : "divider",
           borderRadius: 2,
           p: 3,
           textAlign: "center",
@@ -73,17 +82,29 @@ function GridCanvas({
           cursor: "copy",
         }}
       >
-        <Box>
-          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-            No widgets yet
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Drag a widget from the left panel or select one to add it here.
-          </Typography>
-          <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: "block" }}>
-            💡 You can also arrange widgets on this 3-column grid.
-          </Typography>
-        </Box>
+        {isDragOver && draggedMeta ? (
+          <Box sx={{ textAlign: "center" }}>
+            <Typography sx={{ fontSize: 40 }}>{draggedMeta.icon}</Typography>
+            <Typography variant="subtitle1" fontWeight={700} color="primary.main">
+              {draggedMeta.name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {draggedMeta.description}
+            </Typography>
+          </Box>
+        ) : (
+          <Box>
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              No widgets yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Drag a widget from the left panel or select one to add it here.
+            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: "block" }}>
+              💡 You can also arrange widgets on this 3-column grid.
+            </Typography>
+          </Box>
+        )}
       </Paper>
     );
   }
@@ -97,8 +118,8 @@ function GridCanvas({
       sx={{
         flex: 1,
         minHeight: 400,
-        bgcolor: "#faf6f0",
-        border: "1px solid #ead8c4",
+        bgcolor: "brand.subtle",
+        border: "1px solid", borderColor: "divider",
         borderRadius: 2,
         p: 2,
         display: "grid",
@@ -132,22 +153,36 @@ function GridCanvas({
         />
       ))}
 
-      {/* Drop zone hint when dragging over */}
-      {dragOverIndex !== null && (
+      {/* Drop zone preview - Sprint 19 (docs/SPRINT_PLAN.md): shows what's
+          actually about to be dropped (icon, name, real footprint) rather
+          than a generic "drop here" banner. */}
+      {isDragOver && (
         <Box
           sx={{
-            gridColumn: "1 / -1",
+            gridColumn: draggedMeta ? `span ${draggedMeta.defaultSpan}` : "1 / -1",
+            gridRow: "span 1",
             bgcolor: "primary.light",
             border: "2px dashed",
             borderColor: "primary.main",
             borderRadius: 1,
-            p: 3,
+            p: 2,
             textAlign: "center",
-            color: "primary.main",
+            color: "primary.dark",
             fontWeight: 700,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          Drop here to add widget
+          {draggedMeta ? (
+            <>
+              <Typography sx={{ fontSize: 24 }}>{draggedMeta.icon}</Typography>
+              <Typography variant="body2" fontWeight={700}>{draggedMeta.name}</Typography>
+            </>
+          ) : (
+            "Drop here to add widget"
+          )}
         </Box>
       )}
     </Paper>

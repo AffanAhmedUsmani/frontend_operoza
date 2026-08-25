@@ -127,7 +127,7 @@ function DashboardViewer({ accessToken, dashboard, actorRole, canEdit = false, o
           sx={{
             textAlign: "center",
             py: 8,
-            border: "2px dashed #ead8c4",
+            border: "2px dashed", borderColor: "divider",
             borderRadius: 3,
           }}
           role="status"

@@ -34,21 +34,44 @@ import { MdDelete, MdEdit, MdVisibility } from "react-icons/md";
 
 import {
   assignRoleToTenantUser,
+  createAllowedNetwork,
   createTenantUser,
+  fetchAllowedNetworks,
+  fetchCurrentClientIp,
   fetchTenantRoles,
   fetchTenantUsers,
 } from "../services/adminService";
 import {
+  deleteAllowedNetwork,
   deleteTenantUser,
   toggleTenantRole,
   updateTenantUser,
 } from "../services/adminService";
 import CampaignsPanel from "../components/CampaignsPanel";
+import ComingSoonNotice from "../components/ComingSoonNotice";
+import PayrollSettingsPanel from "../components/PayrollSettingsPanel";
+import TenantUsagePanel from "../components/TenantUsagePanel";
+import UpgradeRequiredModal from "../components/UpgradeRequiredModal";
+import TenantDataExportPanel from "../components/TenantDataExportPanel";
+import TenantBrandingPanel from "../components/TenantBrandingPanel";
+import TenantCurrencyPanel from "../components/TenantCurrencyPanel";
+import ActivityLogPanel from "../components/ActivityLogPanel";
+import GettingStartedChecklist from "../components/GettingStartedChecklist";
+import PayrollPanel from "../components/PayrollPanel";
+import MessagingPanel from "../../messaging/components/MessagingPanel";
 import AttendancePanel from "../components/AttendancePanel";
 import SalesPanel from "../components/SalesPanel";
 import DashboardsPanel from "../components/dashboard/DashboardsPanel";
 import ReportsPanel from "../components/reports/ReportsPanel";
 import { useCampaigns } from "../hooks/useCampaigns";
+
+// Sprint 9 (docs/SPRINT_PLAN.md), general guide S10 - mirrors
+// payroll/models.py's PAYROLL_ELIGIBLE_ROLE_CODES. Only used to decide
+// whether to SHOW the base-salary field; the backend independently
+// enforces this same rule server-side (admin_users POST), so this list
+// drifting out of sync would only ever hide/show a field, never bypass
+// the real gate.
+const PAYROLL_ELIGIBLE_ROLE_CODES = new Set(["team_lead", "agent", "hr_manager"]);
 
 function TenantAdminDashboard({ session, activeNavLabel }) {
   const accessToken = session?.accessToken;
@@ -59,6 +82,8 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
   const [users, setUsers] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [upgradeModalReason, setUpgradeModalReason] = useState(null);
+  const { campaigns: overviewCampaigns } = useCampaigns(accessToken);
 
   const [newUserForm, setNewUserForm] = useState({
     displayName: "",
@@ -67,6 +92,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
     roleCode: "agent",
     phoneNumber: "",
     photo: null,
+    baseSalaryAmount: "",
   });
   const photoInputRef = useRef(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -88,6 +114,16 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
   const editPhotoRef = useRef(null);
   const [deleteUser, setDeleteUser] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+
+  // Network access (Sprint 3 - IP allocation)
+  const [networks, setNetworks] = useState([]);
+  const [networksLoaded, setNetworksLoaded] = useState(false);
+  const [currentIp, setCurrentIp] = useState("");
+  const [networkForm, setNetworkForm] = useState({ label: "", cidr: "" });
+  const [networkError, setNetworkError] = useState("");
+  const [networkSuccess, setNetworkSuccess] = useState("");
+  const [pendingNetworkSubmit, setPendingNetworkSubmit] = useState(false);
+  const [deleteNetwork, setDeleteNetwork] = useState(null);
 
   const enabledRoles = roles.filter((r) => r.enabled);
   const queryValue = tableFilters.query.trim().toLowerCase();
@@ -151,12 +187,91 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
       "Attendance": 4,
       "Reports": 5,
       "Dashboards": 6,
+      "Payroll": 8,
+      "Messages": 9,
       "Settings": 7,
     };
     if (activeNavLabel && adminTabIndexByLabel[activeNavLabel] !== undefined) {
       setActiveTab(adminTabIndexByLabel[activeNavLabel]);
     }
   }, [activeNavLabel]);
+
+  // Network access data is only needed once the Settings tab is opened.
+  useEffect(() => {
+    if (activeTab !== 7 || networksLoaded || !accessToken) {
+      return;
+    }
+    (async () => {
+      try {
+        const [networksResponse, ipResponse] = await Promise.all([
+          fetchAllowedNetworks(accessToken),
+          fetchCurrentClientIp(accessToken),
+        ]);
+        setNetworks(networksResponse);
+        setCurrentIp(ipResponse);
+        setNetworksLoaded(true);
+      } catch (error) {
+        setNetworkError(error.message || "Unable to load network access settings.");
+      }
+    })();
+  }, [activeTab, networksLoaded, accessToken]);
+
+  const tenantWideNetworkCount = networks.filter((n) => !n.campaign_id).length;
+
+  const submitNetworkForm = async () => {
+    setNetworkError("");
+    setNetworkSuccess("");
+    try {
+      const created = await createAllowedNetwork(accessToken, networkForm);
+      setNetworks((prev) => [created, ...prev]);
+      setNetworkForm({ label: "", cidr: "" });
+      setNetworkSuccess("Network entry added.");
+    } catch (error) {
+      setNetworkError(error.message || "Unable to add network entry.");
+    }
+  };
+
+  const handleAddNetwork = async (event) => {
+    event.preventDefault();
+    if (!networkForm.label.trim() || !networkForm.cidr.trim()) {
+      return;
+    }
+    // Going from zero to one tenant-wide entries is the moment IP
+    // restriction switches on for Agents in this tenant - warn before that
+    // specific transition rather than on every add, since only that first
+    // entry can silently lock someone out who isn't expecting it yet.
+    if (tenantWideNetworkCount === 0) {
+      setPendingNetworkSubmit(true);
+      return;
+    }
+    await submitNetworkForm();
+  };
+
+  const handleConfirmFirstNetwork = async () => {
+    setPendingNetworkSubmit(false);
+    await submitNetworkForm();
+  };
+
+  const handleUseCurrentIp = () => {
+    setNetworkForm((prev) => ({
+      ...prev,
+      cidr: currentIp ? `${currentIp}/32` : prev.cidr,
+    }));
+  };
+
+  const handleDeleteNetwork = async () => {
+    if (!deleteNetwork) return;
+    setNetworkError("");
+    setNetworkSuccess("");
+    try {
+      await deleteAllowedNetwork(accessToken, deleteNetwork.allowed_network_id);
+      setNetworks((prev) => prev.filter((n) => n.allowed_network_id !== deleteNetwork.allowed_network_id));
+      setNetworkSuccess(`Removed "${deleteNetwork.label}".`);
+      setDeleteNetwork(null);
+    } catch (error) {
+      setNetworkError(error.message || "Unable to remove network entry.");
+    }
+  };
 
   const handleCreateUser = async (event) => {
     event.preventDefault();
@@ -170,11 +285,19 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
     try {
       await createTenantUser(accessToken, newUserForm);
       setSuccessMessage("New user created successfully.");
-      setNewUserForm((prev) => ({ ...prev, displayName: "", email: "", phoneNumber: "", photo: null }));
+      setNewUserForm((prev) => ({ ...prev, displayName: "", email: "", phoneNumber: "", photo: null, baseSalaryAmount: "" }));
       setPhotoPreview(null);
       await loadData();
     } catch (error) {
-      setErrorMessage(error.message || "Unable to create user.");
+      // PLATFORM_OPS_AND_BILLING.md S3 - a real seat-quota block
+      // (iam/views.py's admin_users POST branch), not a generic
+      // failure - show the "contact support to upgrade" path instead
+      // of a bare error string the admin has no way to act on.
+      if (error.data?.code === "seat_quota_exceeded") {
+        setUpgradeModalReason("seat_quota_exceeded");
+      } else {
+        setErrorMessage(error.message || "Unable to create user.");
+      }
     }
   };
 
@@ -246,14 +369,21 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
     <Stack spacing={3}>
       {/* Dashboard tab */}
       {activeTab === 0 && (
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Overview</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Tenant-wide KPIs, live activity, and campaign summaries will appear here.
-            </Typography>
-          </CardContent>
-        </Card>
+        <Stack spacing={2}>
+          <GettingStartedChecklist
+            accessToken={accessToken}
+            campaignCount={overviewCampaigns.length}
+            onNavigate={setActiveTab}
+          />
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Typography variant="h6">Overview</Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }}>
+                Tenant-wide KPIs, live activity, and campaign summaries will appear here.
+              </Typography>
+            </CardContent>
+          </Card>
+        </Stack>
       )}
 
       {/* Users & Roles tab */}
@@ -263,7 +393,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
           {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
 
           {/* Role catalogue with toggles */}
-          <Card sx={{ border: "1px solid #ead8c4" }}>
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 1 }}>Available Roles</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -272,12 +402,12 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                 <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" } }}>
                 {roles.map((role) => (
                     <Box key={role.role_code}>
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid", borderColor: role.enabled ? "#c87941" : "#e0d6cc", borderRadius: 1, px: 1.5, py: 0.5, background: role.enabled ? "#fff8f2" : "transparent" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid", borderColor: role.enabled ? "primary.light" : "divider", borderRadius: 1, px: 1.5, py: 0.5, bgcolor: role.enabled ? "brand.subtle" : "transparent" }}>
                       <Stack>
                         <Typography variant="body2" fontWeight={role.enabled ? 600 : 400}>{role.display_name}</Typography>
                         <Typography variant="caption" color="text.secondary">{role.role_code}</Typography>
                       </Stack>
-                      <Switch size="small" checked={!!role.enabled} onChange={() => handleToggleRole(role.role_code, role.enabled)} color="warning" />
+                      <Switch size="small" checked={!!role.enabled} onChange={() => handleToggleRole(role.role_code, role.enabled)} />
                     </Box>
                     </Box>
                 ))}
@@ -286,7 +416,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
           </Card>
 
           {/* Create user */}
-          <Card sx={{ border: "1px solid #ead8c4" }}>
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>Create Sub User</Typography>
               <Stack component="form" spacing={1.5} onSubmit={handleCreateUser}>
@@ -308,9 +438,20 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                       {enabledRoles.map((r) => <MenuItem key={r.role_code} value={r.role_code}>{r.display_name}</MenuItem>)}
                     </TextField>
                   </Box>
+                  {PAYROLL_ELIGIBLE_ROLE_CODES.has(newUserForm.roleCode) ? (
+                    <TextField
+                      label="Base salary (optional)"
+                      type="number"
+                      fullWidth
+                      inputProps={{ min: 0, step: "0.01" }}
+                      helperText="Leave blank to set up payroll for this person later"
+                      value={newUserForm.baseSalaryAmount}
+                      onChange={(e) => setNewUserForm((p) => ({ ...p, baseSalaryAmount: e.target.value }))}
+                    />
+                  ) : null}
                   <Box>
                     <Stack direction="row" alignItems="center" spacing={1.5} sx={{ pt: 0.5 }}>
-                      <Avatar src={photoPreview || undefined} sx={{ width: 44, height: 44, cursor: "pointer", border: "2px dashed #c87941" }} onClick={() => photoInputRef.current?.click()} />
+                      <Avatar src={photoPreview || undefined} sx={{ width: 44, height: 44, cursor: "pointer", border: "2px dashed", borderColor: "primary.light" }} onClick={() => photoInputRef.current?.click()} />
                       <Stack>
                         <Typography variant="caption" color="text.secondary">Profile photo (optional)</Typography>
                         <Button size="small" variant="text" sx={{ p: 0 }} onClick={() => photoInputRef.current?.click()}>{photoPreview ? "Change" : "Upload"}</Button>
@@ -327,7 +468,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
           </Card>
 
           {/* Assign role */}
-          <Card sx={{ border: "1px solid #ead8c4" }}>
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>Assign Role to Existing User</Typography>
               <Stack component="form" spacing={1.5} onSubmit={handleAssignRole} direction={{ xs: "column", md: "row" }}>
@@ -349,7 +490,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
           </Card>
 
           {/* Users table with CRUD */}
-          <Card sx={{ border: "1px solid #ead8c4" }}>
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>Tenant Users ({filteredUsers.length} / {users.length})</Typography>
               <Box sx={{ display: "grid", gap: 1.5, mb: 2, gridTemplateColumns: { xs: "1fr", md: "minmax(0, 5fr) minmax(0, 3fr) minmax(0, 3fr) minmax(0, 1fr)" } }}>
@@ -407,7 +548,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
                 /* Mobile: card list */
                 <Stack spacing={1.5} sx={{ mt: 1 }}>
                   {filteredUsers.map((user) => (
-                    <Card key={user.user_id} variant="outlined" sx={{ borderColor: "#e8d8c8" }}>
+                    <Card key={user.user_id} variant="outlined" sx={{ borderColor: "divider" }}>
                       <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                         <Stack direction="row" spacing={1.5} alignItems="center">
                           <Avatar src={user.photo_url || undefined} sx={{ width: 40, height: 40 }}>
@@ -502,15 +643,154 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
 
       {/* Settings tab */}
       {activeTab === 7 && (
-        <Card sx={{ border: "1px solid #ead8c4" }}>
-          <CardContent>
-            <Typography variant="h6">Settings</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Tenant configuration, billing, branding, and integrations will appear here.
-            </Typography>
-          </CardContent>
-        </Card>
+        <Stack spacing={3}>
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Typography variant="h6">Settings</Typography>
+              <Stack spacing={2} sx={{ mt: 2 }}>
+                {/* Sprint 8 (docs/SPRINT_PLAN.md): these previously
+                    described specific working capabilities with zero
+                    state or API calls behind them (general guide §15.7) -
+                    now honestly labeled instead of implying they work.
+                    "Billing" (Sprint 16) and "Branding" (Sprint 19) are
+                    gone: both now render real panels below instead of a
+                    coming-soon notice. */}
+                <ComingSoonNotice
+                  title="Integrations"
+                  description="Connect external tools for exports, notifications, and reporting sync."
+                  sprint="Sprint 11"
+                />
+              </Stack>
+            </CardContent>
+          </Card>
+
+          {/* Tenant branding (Sprint 19 - docs/SPRINT_PLAN.md) */}
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 1 }}>Branding</Typography>
+              <TenantBrandingPanel accessToken={accessToken} />
+            </CardContent>
+          </Card>
+
+          {/* Currency (Post-Sprint-20) */}
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 1 }}>Currency</Typography>
+              <TenantCurrencyPanel accessToken={accessToken} />
+            </CardContent>
+          </Card>
+
+          {/* Usage & capacity (Sprint 17 - docs/SPRINT_PLAN.md) */}
+          <TenantUsagePanel accessToken={accessToken} />
+
+          {/* Data export/portability (Sprint 18 - docs/SPRINT_PLAN.md) */}
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 1 }}>Data Export</Typography>
+              <TenantDataExportPanel accessToken={accessToken} />
+            </CardContent>
+          </Card>
+
+          {/* Payroll policy (Sprint 9 - docs/SPRINT_PLAN.md) */}
+          <PayrollSettingsPanel accessToken={accessToken} />
+
+          {/* Network Access (IP allocation) */}
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 0.5 }}>Network Access</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Restrict Agents in this workspace to sign in and work only from the IP addresses or ranges listed
+                below. Other roles are never restricted by this list.
+              </Typography>
+
+              {networkError ? <Alert severity="error" sx={{ mb: 2 }}>{networkError}</Alert> : null}
+              {networkSuccess ? <Alert severity="success" sx={{ mb: 2 }}>{networkSuccess}</Alert> : null}
+
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Your current session IP, as seen by the server, is <strong>{currentIp || "…"}</strong>.
+                {" "}This is whichever device/network you're using right now to view this page - if
+                you're testing locally it will show a loopback address (127.0.0.1), not a real
+                network IP; that's expected outside of production. To allowlist a specific team
+                member's IP instead of your own, use their address from the Users tab below.
+              </Alert>
+
+              <Stack component="form" spacing={1.5} onSubmit={handleAddNetwork} sx={{ mb: 3 }}>
+                <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" } }}>
+                  <TextField
+                    label="Label"
+                    placeholder="Main office"
+                    fullWidth
+                    value={networkForm.label}
+                    onChange={(e) => setNetworkForm((p) => ({ ...p, label: e.target.value }))}
+                  />
+                  <TextField
+                    label="IP address or CIDR range"
+                    placeholder="203.0.113.44/32"
+                    fullWidth
+                    value={networkForm.cidr}
+                    onChange={(e) => setNetworkForm((p) => ({ ...p, cidr: e.target.value }))}
+                  />
+                  <Stack direction="row" spacing={1}>
+                    <Button variant="text" onClick={handleUseCurrentIp} disabled={!currentIp}>Use my IP</Button>
+                    <Button type="submit" variant="contained" disabled={!networkForm.label.trim() || !networkForm.cidr.trim()}>
+                      Add
+                    </Button>
+                  </Stack>
+                </Box>
+              </Stack>
+
+              {networks.length === 0 ? (
+                <Typography color="text.secondary">
+                  No networks configured yet — Agents can currently sign in from any location.
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Label</TableCell>
+                        <TableCell>CIDR</TableCell>
+                        <TableCell>Added</TableCell>
+                        <TableCell align="center">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {networks.map((network) => (
+                        <TableRow key={network.allowed_network_id} hover>
+                          <TableCell>{network.label}</TableCell>
+                          <TableCell>{network.cidr}</TableCell>
+                          <TableCell>{new Date(network.created_at).toLocaleString()}</TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="Remove">
+                              <IconButton size="small" color="error" onClick={() => setDeleteNetwork(network)}>
+                                <MdDelete />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Activity Log (Post-Sprint-20) */}
+          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 1 }}>Activity Log</Typography>
+              <ActivityLogPanel accessToken={accessToken} />
+            </CardContent>
+          </Card>
+        </Stack>
       )}
+
+      {/* Payroll tab (Sprint 10 - docs/SPRINT_PLAN.md) */}
+      {activeTab === 8 && <PayrollPanel accessToken={accessToken} role="admin" />}
+
+      {/* Messages tab (Sprint 13 - docs/SPRINT_PLAN.md) */}
+      {activeTab === 9 && <MessagingPanel accessToken={accessToken} />}
 
       {/* VIEW DIALOG */}
       <Dialog open={!!viewUser} onClose={() => setViewUser(null)} maxWidth="xs" fullWidth>
@@ -523,7 +803,18 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
               <Chip label={viewUser.status} color={viewUser.status === "active" ? "success" : "error"} />
               <Divider flexItem />
               <Box sx={{ width: "100%", display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
-                {[ ["Email", viewUser.email], ["Phone", viewUser.phone_number || "—"], ["User ID", viewUser.user_id], ["Roles", viewUser.roles.map((r) => r.display_name).join(", ") || "None"]].map(([label, value]) => (
+                {[
+                  ["Email", viewUser.email],
+                  ["Phone", viewUser.phone_number || "—"],
+                  ["User ID", viewUser.user_id],
+                  ["Roles", viewUser.roles.map((r) => r.display_name).join(", ") || "None"],
+                  // Post-Sprint-20 - the address this user actually connected
+                  // from at last login, so an Admin can add it to Network
+                  // Access on their behalf instead of asking them to
+                  // self-report it (most useful for HR Manager/Team
+                  // Lead/Agent, who are the roles that get restricted there).
+                  ["Last known IP", viewUser.last_login_ip || "Not seen yet"],
+                ].map(([label, value]) => (
                   <Box key={label}>
                     <Typography variant="caption" color="text.secondary">{label}</Typography>
                     <Typography variant="body2" sx={{ wordBreak: "break-all" }}>{value}</Typography>
@@ -548,7 +839,7 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
             </TextField>
             <TextField label="New password (blank = no change)" fullWidth value={editForm.password} onChange={(e) => setEditForm((p) => ({ ...p, password: e.target.value }))} />
             <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Avatar src={editPhotoPreview || undefined} sx={{ width: 48, height: 48, cursor: "pointer", border: "2px dashed #c87941" }} onClick={() => editPhotoRef.current?.click()} />
+              <Avatar src={editPhotoPreview || undefined} sx={{ width: 48, height: 48, cursor: "pointer", border: "2px dashed", borderColor: "primary.light" }} onClick={() => editPhotoRef.current?.click()} />
               <Stack>
                 <Typography variant="caption" color="text.secondary">Profile photo</Typography>
                 <Button size="small" variant="text" sx={{ p: 0 }} onClick={() => editPhotoRef.current?.click()}>Change photo</Button>
@@ -577,6 +868,44 @@ function TenantAdminDashboard({ session, activeNavLabel }) {
           <Button variant="contained" color="error" disabled={deleteConfirm !== deleteUser?.display_name} onClick={handleConfirmDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
+
+      {/* FIRST NETWORK ENTRY WARNING */}
+      <Dialog open={pendingNetworkSubmit} onClose={() => setPendingNetworkSubmit(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Turn on IP restriction for Agents?</DialogTitle>
+        <DialogContent dividers>
+          <Typography>
+            This tenant has no network restrictions yet, so Agents can currently sign in from anywhere. Adding this
+            entry turns restriction <strong>on immediately</strong>: any Agent not connecting from an allowed
+            network — including one already signed in elsewhere right now — will be blocked on their very next
+            request.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingNetworkSubmit(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleConfirmFirstNetwork}>Add anyway</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DELETE NETWORK DIALOG */}
+      <Dialog open={!!deleteNetwork} onClose={() => setDeleteNetwork(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove Network Entry</DialogTitle>
+        <DialogContent dividers>
+          <Typography>
+            Remove <strong>{deleteNetwork?.label}</strong> ({deleteNetwork?.cidr})? Agents connecting from this
+            range will no longer be allowed once removed.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteNetwork(null)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteNetwork}>Remove</Button>
+        </DialogActions>
+      </Dialog>
+
+      <UpgradeRequiredModal
+        open={!!upgradeModalReason}
+        onClose={() => setUpgradeModalReason(null)}
+        reasonCode={upgradeModalReason}
+      />
     </Stack>
   );
 }

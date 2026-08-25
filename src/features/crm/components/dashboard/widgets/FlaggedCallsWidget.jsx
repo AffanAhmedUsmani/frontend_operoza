@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MdWarning } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 
 /**
  * FlaggedCallsWidget — Highlights poor-quality calls (worst first).
@@ -21,6 +22,7 @@ import { MdWarning } from "react-icons/md";
  * RBAC-gated: audio-only visibility enforced server-side.
  */
 function FlaggedCallsWidget({ widget }) {
+  const theme = useTheme();
   if (widget.error) {
     return <Alert severity="warning">{widget.error}</Alert>;
   }
@@ -28,7 +30,7 @@ function FlaggedCallsWidget({ widget }) {
   if (!widget.flagged_calls || widget.flagged_calls.length === 0) {
     return (
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 2, bgcolor: "success.light", borderRadius: 1 }}>
-        <MdWarning size={20} color="#2e7d32" />
+        <MdWarning size={20} color={theme.palette.success.main} />
         <Typography variant="body2" fontWeight={600} color="success.dark">
           No flagged calls — quality is good!
         </Typography>
@@ -57,7 +59,7 @@ function FlaggedCallsWidget({ widget }) {
       {/* Header with thresholds */}
       <Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-          <MdWarning size={18} color="#d32f2f" />
+          <MdWarning size={18} color={theme.palette.error.main} />
           <Typography variant="overline" sx={{ letterSpacing: "0.08em", color: "text.secondary", fontSize: "0.7rem" }}>
             Quality Issues
           </Typography>
@@ -79,10 +81,10 @@ function FlaggedCallsWidget({ widget }) {
       </Box>
 
       {/* Flagged calls table (worst first) */}
-      <TableContainer sx={{ borderRadius: 1, border: "1px solid #ead8c4", maxHeight: 350, overflowY: "auto" }}>
+      <TableContainer sx={{ borderRadius: 1, border: "1px solid", borderColor: "divider", maxHeight: 350, overflowY: "auto" }}>
         <Table size="small" stickyHeader aria-label="Flagged calls table">
           <TableHead>
-            <TableRow sx={{ bgcolor: "#fffaf3" }}>
+            <TableRow sx={{ bgcolor: "brand.subtle" }}>
               <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem", width: 32 }}>#</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Lead Name</TableCell>
               <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Sentiment</TableCell>

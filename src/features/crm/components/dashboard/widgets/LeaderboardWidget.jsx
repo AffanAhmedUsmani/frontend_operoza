@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MdEmojiEvents } from "react-icons/md";
+import { useTheme } from "@mui/material/styles";
 
 const RANK_COLORS = {
   1: "#FFD700",  // Gold
@@ -28,6 +29,7 @@ const RANK_COLORS = {
  * Progressive disclosure: limit to 10, bounded 1-50 server-side.
  */
 export function LeaderboardWidget({ widget, actorUserId }) {
+  const theme = useTheme();
   if (widget.error) {
     return <Alert severity="warning" sx={{ mt: 1 }}>{widget.error}</Alert>;
   }
@@ -52,15 +54,15 @@ export function LeaderboardWidget({ widget, actorUserId }) {
         <Chip
           label={`${widget.shown || 0} of ${widget.total_agents || 0}`}
           size="small"
-          sx={{ bgcolor: "#f5ece0", color: "#7c3f17", fontWeight: 700, fontSize: "0.65rem", height: 18 }}
+          sx={{ bgcolor: "brand.subtle", color: "primary.dark", fontWeight: 700, fontSize: "0.65rem", height: 18 }}
         />
       </Box>
 
       {/* Primacy: top performers first; miller's law: bounded to shown count */}
-      <TableContainer sx={{ borderRadius: 1, border: "1px solid #ead8c4", maxHeight: 300, overflowY: "auto" }}>
+      <TableContainer sx={{ borderRadius: 1, border: "1px solid", borderColor: "divider", maxHeight: 300, overflowY: "auto" }}>
         <Table size="small" stickyHeader aria-label="Agent performance leaderboard">
           <TableHead>
-            <TableRow sx={{ bgcolor: "#fffaf3" }}>
+            <TableRow sx={{ bgcolor: "brand.subtle" }}>
               <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.72rem", width: 32 }}>#</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Agent</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Score</TableCell>
@@ -69,7 +71,7 @@ export function LeaderboardWidget({ widget, actorUserId }) {
           <TableBody>
             {rows.map((row) => {
               const isCurrent = row.is_current_user;
-              const rankColor = RANK_COLORS[row.rank] || "#999";
+              const rankColor = RANK_COLORS[row.rank] || theme.palette.text.disabled;
               return (
                 <TableRow
                   key={row.agent_id}

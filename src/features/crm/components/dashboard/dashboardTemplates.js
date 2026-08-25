@@ -40,25 +40,25 @@ export const DASHBOARD_TEMPLATE_PRESETS = [
     code: "performance_cockpit",
     label: "Performance Cockpit",
     description: "Exec-style view with totals, conversion, pipeline state, and a live editable leads table.",
-    accent: "#c05314",
+    accent: "primary.main",
   },
   {
     code: "client_storyboard",
     label: "Client Storyboard",
     description: "A client-friendly dashboard with readable KPIs, soft charts, and a compact progress table.",
-    accent: "#0f8a7a",
+    accent: "secondary.main",
   },
   {
     code: "agent_focus_board",
     label: "Agent Focus Board",
     description: "Day-to-day lead flow, wins, and editable working fields for front-line execution.",
-    accent: "#8f3a11",
+    accent: "primary.dark",
   },
   {
     code: "pipeline_lab",
     label: "Pipeline Lab",
     description: "Exploratory dashboard mixing distribution, trend, and record-level table widgets.",
-    accent: "#45b8ab",
+    accent: "secondary.light",
   },
 ];
 

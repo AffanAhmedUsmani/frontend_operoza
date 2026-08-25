@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -13,12 +13,16 @@ import {
   StepLabel,
   Stepper,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import RocketLaunchRoundedIcon from "@mui/icons-material/RocketLaunchRounded";
 
-import FloatingActions from "../components/FloatingActions";
-import { onboardTenant } from "../features/auth/services/authService";
+import PublicLayout from "../components/PublicLayout";
+import SeoHead from "../components/SeoHead";
+import { onboardTenant, restoreTenant } from "../features/auth/services/authService";
+import RestorePortalForm from "../features/auth/components/RestorePortalForm";
 
 const steps = ["Business Basics", "Admin Account", "Scale Planning"];
 
@@ -33,6 +37,7 @@ const companySizes = [
 
 function StartJourneyPage() {
   const navigate = useNavigate();
+  const [mode, setMode] = useState("create");
   const [activeStep, setActiveStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -123,25 +128,68 @@ function StartJourneyPage() {
     }
   };
 
+  const handleRestored = (result) => {
+    navigate(`/operoza/${result.tenant.tenantSlug}/login`, {
+      state: {
+        companyName: result.tenant.companyName,
+        companySlug: result.tenant.tenantSlug,
+        user: result.user,
+      },
+    });
+  };
+
   return (
-    <Box className="page-shell">
-      <Box className="ambient-bg" />
+    <PublicLayout>
+      <SeoHead
+        path="/start"
+        title="Start Free"
+        description="Create your free Operoza workspace - no credit card required. Set up your campaigns and invite your team in minutes."
+      />
       <Container maxWidth="md" sx={{ py: { xs: 5, md: 8 }, position: "relative", zIndex: 2 }}>
-        <Card className="fade-up" sx={{ border: "1px solid #ead8c4" }}>
+        <Card className="fade-up" sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent sx={{ p: { xs: 3, md: 5 } }}>
             <Stack spacing={3} sx={{ width: "100%", maxWidth: 720, mx: "auto" }}>
               <Stack direction="row" spacing={1.2} alignItems="center">
                 <RocketLaunchRoundedIcon color="primary" />
-                <Typography variant="h4">Start CRM journey for your business today</Typography>
+                <Typography variant="h1" sx={{ fontSize: { xs: "1.6rem", md: "2.125rem" } }}>
+                  Start CRM journey for your business today
+                </Typography>
               </Stack>
-              <Typography color="text.secondary">
-                Tell us your setup preferences and we will prepare your tenant login workspace link.
+
+              <ToggleButtonGroup
+                exclusive
+                fullWidth
+                value={mode}
+                onChange={(_event, value) => {
+                  if (!value) return;
+                  setErrorMessage("");
+                  setSuccessMessage("");
+                  setMode(value);
+                }}
+              >
+                <ToggleButton value="create">Create a new workspace</ToggleButton>
+                <ToggleButton value="restore">Restore a previous portal</ToggleButton>
+              </ToggleButtonGroup>
+
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+                Already have a workspace but just lost the link?{" "}
+                <Typography component={Link} to="/find-workspace" color="primary" fontWeight={700} sx={{ textDecoration: "none" }}>
+                  Find your workspace
+                </Typography>
               </Typography>
 
-              {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-              {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
+              {mode === "restore" ? (
+                <RestorePortalForm onRestored={handleRestored} restoreTenant={restoreTenant} />
+              ) : (
+                <>
+                  <Typography color="text.secondary">
+                    Tell us your setup preferences and we will prepare your tenant login workspace link.
+                  </Typography>
 
-              <Stepper activeStep={activeStep} alternativeLabel>
+                  {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+                  {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
+
+                  <Stepper activeStep={activeStep} alternativeLabel>
                 {steps.map((label) => (
                   <Step key={label}>
                     <StepLabel>{label}</StepLabel>
@@ -238,13 +286,14 @@ function StartJourneyPage() {
                     {awaitingVerification ? "Verify and Create Workspace" : "Create Workspace Link"}
                   </Button>
                 )}
-              </Stack>
+                  </Stack>
+                </>
+              )}
             </Stack>
           </CardContent>
         </Card>
       </Container>
-      <FloatingActions />
-    </Box>
+    </PublicLayout>
   );
 }
 
