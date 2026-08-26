@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /operoza/
 
-Sitemap: https://operoza.com/sitemap.xml
+Sitemap: https://www.operoza.com/sitemap.xml

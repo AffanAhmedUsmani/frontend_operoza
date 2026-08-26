@@ -216,15 +216,15 @@ const organizationStructuredData = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Operoza",
-  url: "https://operoza.com",
-  logo: "https://operoza.com/favicon.png",
+  url: "https://www.operoza.com",
+  logo: "https://www.operoza.com/favicon.png",
 };
 
 const websiteStructuredData = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: "Operoza",
-  url: "https://operoza.com",
+  url: "https://www.operoza.com",
 };
 
 function HomePage() {

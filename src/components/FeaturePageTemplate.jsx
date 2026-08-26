@@ -42,9 +42,9 @@ export default function FeaturePageTemplate({ feature }) {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: "https://operoza.com/" },
-        { "@type": "ListItem", position: 2, name: "Features", item: "https://operoza.com/features" },
-        { "@type": "ListItem", position: 3, name: feature.title, item: `https://operoza.com/features/${feature.slug}` },
+        { "@type": "ListItem", position: 1, name: "Home", item: "https://www.operoza.com/" },
+        { "@type": "ListItem", position: 2, name: "Features", item: "https://www.operoza.com/features" },
+        { "@type": "ListItem", position: 3, name: feature.title, item: `https://www.operoza.com/features/${feature.slug}` },
       ],
     }),
     [feature]

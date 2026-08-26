@@ -1,7 +1,14 @@
 import { Helmet } from "react-helmet-async";
 
 const SITE_NAME = "Operoza";
-const SITE_URL = "https://operoza.com";
+// www.operoza.com is the real canonical domain in production - Vercel
+// redirects the bare operoza.com to it (confirmed live: 307/308 to
+// https://www.operoza.com/, which alone returns 200). Every canonical/
+// OG/Twitter URL this component builds must point at the domain that
+// actually serves content, not the one that just redirects to it -
+// Google Search Console flagged exactly this mismatch ("Page with
+// redirect") when the sitemap still listed the bare-domain URLs.
+const SITE_URL = "https://www.operoza.com";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 /**

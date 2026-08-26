@@ -46,9 +46,9 @@ export default function CampaignPageTemplate({ campaign }) {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: "https://operoza.com/" },
-        { "@type": "ListItem", position: 2, name: "Campaigns", item: "https://operoza.com/campaigns" },
-        { "@type": "ListItem", position: 3, name: campaign.title, item: `https://operoza.com/campaigns/${campaign.slug}` },
+        { "@type": "ListItem", position: 1, name: "Home", item: "https://www.operoza.com/" },
+        { "@type": "ListItem", position: 2, name: "Campaigns", item: "https://www.operoza.com/campaigns" },
+        { "@type": "ListItem", position: 3, name: campaign.title, item: `https://www.operoza.com/campaigns/${campaign.slug}` },
       ],
     }),
     [campaign]
