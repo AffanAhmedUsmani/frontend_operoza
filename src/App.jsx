@@ -1,6 +1,8 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 
+import ScrollToTop from "./components/ScrollToTop";
+
 // Public marketing pages (PUBLIC_WEBSITE_SITEMAP.md) - own layout
 // (PublicLayout), own SEO metadata (SeoHead) per page. Loaded eagerly:
 // these are exactly the pages real visitor traffic and search crawlers
@@ -33,46 +35,49 @@ const TenantPortalPage = lazy(() => import("./pages/TenantPortalPage"));
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/start" element={<StartJourneyPage />} />
-      <Route path="/find-workspace" element={<FindWorkspacePage />} />
-      <Route path="/features" element={<FeaturesIndexPage />} />
-      <Route path="/features/:slug" element={<FeatureDetailPage />} />
-      <Route path="/campaigns" element={<CampaignsIndexPage />} />
-      <Route path="/campaigns/:slug" element={<CampaignDetailPage />} />
-      <Route path="/pricing" element={<PricingPage />} />
-      <Route path="/security" element={<SecurityPage />} />
-      <Route path="/about" element={<AboutPage />} />
-      <Route path="/faq" element={<FaqPage />} />
-      <Route path="/contact" element={<ContactPage />} />
-      <Route path="/demo" element={<DemoPage />} />
-      <Route
-        path="/operoza/:companySlug/login"
-        element={
-          <Suspense fallback={null}>
-            <TenantLoginPage />
-          </Suspense>
-        }
-      />
-      <Route
-        path="/operoza/:companySlug/forgot-password"
-        element={
-          <Suspense fallback={null}>
-            <ForgotPasswordPage />
-          </Suspense>
-        }
-      />
-      <Route
-        path="/operoza/:companySlug/portal"
-        element={
-          <Suspense fallback={null}>
-            <TenantPortalPage />
-          </Suspense>
-        }
-      />
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/start" element={<StartJourneyPage />} />
+        <Route path="/find-workspace" element={<FindWorkspacePage />} />
+        <Route path="/features" element={<FeaturesIndexPage />} />
+        <Route path="/features/:slug" element={<FeatureDetailPage />} />
+        <Route path="/campaigns" element={<CampaignsIndexPage />} />
+        <Route path="/campaigns/:slug" element={<CampaignDetailPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/faq" element={<FaqPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/demo" element={<DemoPage />} />
+        <Route
+          path="/operoza/:companySlug/login"
+          element={
+            <Suspense fallback={null}>
+              <TenantLoginPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/operoza/:companySlug/forgot-password"
+          element={
+            <Suspense fallback={null}>
+              <ForgotPasswordPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/operoza/:companySlug/portal"
+          element={
+            <Suspense fallback={null}>
+              <TenantPortalPage />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </>
   );
 }
 
