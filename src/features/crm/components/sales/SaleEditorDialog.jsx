@@ -320,6 +320,7 @@ export default function SaleEditorDialog({
   onSetAgent,
   onUpdatePayload,
   onRemoveAudio,
+  error,
 }) {
   const theme = useTheme();
   const title = readOnly ? "View Sale" : editingSale ? "Edit Sale" : "Create Sale";
@@ -329,6 +330,12 @@ export default function SaleEditorDialog({
       <DialogTitle>{title}</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={1.5} sx={{ pt: 1 }}>
+          {/* QA_FIX_PLAN.md step 12 - a validation/save failure previously
+              only ever appeared on the page behind this dialog, leaving the
+              user unsure why an incomplete sale wasn't saving. Shown here,
+              right where the user is actually looking. */}
+          {error ? <Alert severity="error">{error}</Alert> : null}
+
           {/* Campaign selector is shared; admin also gets an agent selector */}
           <CampaignSelect
             campaigns={campaigns}

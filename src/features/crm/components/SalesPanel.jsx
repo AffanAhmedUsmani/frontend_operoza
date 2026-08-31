@@ -227,6 +227,10 @@ export default function SalesPanel({ accessToken }) {
     });
     setPendingAudioFiles({});
     setRemovedAudioFields(new Set());
+    // A stale page-level error (e.g. "Failed to load sales") must not
+    // linger inside a freshly-opened dialog it has nothing to do with -
+    // see QA_FIX_PLAN.md step 12.
+    setError("");
     setEditorOpen(true);
   };
 
@@ -246,6 +250,10 @@ export default function SalesPanel({ accessToken }) {
     });
     setPendingAudioFiles({});
     setRemovedAudioFields(new Set());
+    // A stale page-level error (e.g. "Failed to load sales") must not
+    // linger inside a freshly-opened dialog it has nothing to do with -
+    // see QA_FIX_PLAN.md step 12.
+    setError("");
     setEditorOpen(true);
   };
 
@@ -261,6 +269,10 @@ export default function SalesPanel({ accessToken }) {
     });
     setPendingAudioFiles({});
     setRemovedAudioFields(new Set());
+    // A stale page-level error (e.g. "Failed to load sales") must not
+    // linger inside a freshly-opened dialog it has nothing to do with -
+    // see QA_FIX_PLAN.md step 12.
+    setError("");
     setEditorOpen(true);
   };
 
@@ -542,6 +554,7 @@ export default function SalesPanel({ accessToken }) {
         onSetAgent={(agentId) => setForm((prev) => ({ ...prev, agent_user_id: agentId }))}
         onUpdatePayload={updatePayloadValue}
         onRemoveAudio={handleRemoveAudio}
+        error={error}
       />
 
       <SaleAnalysisDialog
