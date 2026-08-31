@@ -63,19 +63,60 @@ function StartJourneyPage() {
     []
   );
 
+  const [touched, setTouched] = useState({});
+
+  // Mirrors iam/services.py's validate_password_strength() exactly (min 8
+  // chars, one uppercase, one lowercase, one digit) so a password that
+  // passes here can never turn out to fail server-side, or vice versa -
+  // previously "acceptable" client-side meant nothing more than
+  // "non-empty", so this same policy was only ever discovered at final
+  // submission, after all three steps were already filled in.
+  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const fieldError = (field, value) => {
+    const trimmed = String(value ?? "").trim();
+    if (field === "email") {
+      if (!trimmed) return "Business email is required";
+      if (!EMAIL_PATTERN.test(trimmed)) return "Enter a valid email address";
+      return "";
+    }
+    if (field === "password") {
+      if (!trimmed) return "Password is required";
+      if (trimmed.length < 8) return "Password must be at least 8 characters";
+      if (!/[A-Z]/.test(trimmed)) return "Password must contain at least one uppercase letter";
+      if (!/[a-z]/.test(trimmed)) return "Password must contain at least one lowercase letter";
+      if (!/[0-9]/.test(trimmed)) return "Password must contain at least one number";
+      return "";
+    }
+    // Every other field on these steps is a plain required field today.
+    if (!trimmed) return "This field is required";
+    return "";
+  };
+
   const handleChange = (field) => (event) => {
     setErrorMessage("");
     setSuccessMessage("");
     setFormData((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
-  const isCurrentStepValid = stepFields[activeStep].every((field) => {
-    const value = formData[field];
-    return String(value).trim().length > 0;
-  });
+  const handleBlur = (field) => () => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const isCurrentStepValid = stepFields[activeStep].every(
+    (field) => fieldError(field, formData[field]) === ""
+  );
 
   const nextStep = () => {
     if (!isCurrentStepValid) {
+      // Surface every error on this step immediately, not just the ones
+      // already touched by blur - covers the case of pasting into a field
+      // and clicking Next without ever leaving it via Tab/click-away.
+      setTouched((prev) => {
+        const next = { ...prev };
+        for (const field of stepFields[activeStep]) next[field] = true;
+        return next;
+      });
       return;
     }
     setActiveStep((s) => Math.min(s + 1, steps.length - 1));
@@ -204,6 +245,9 @@ function StartJourneyPage() {
                     label="Company name"
                     value={formData.companyName}
                     onChange={handleChange("companyName")}
+                    onBlur={handleBlur("companyName")}
+                    error={touched.companyName && !!fieldError("companyName", formData.companyName)}
+                    helperText={touched.companyName ? fieldError("companyName", formData.companyName) : ""}
                     sx={{ maxWidth: 460 }}
                   />
                 </Stack>
@@ -211,9 +255,39 @@ function StartJourneyPage() {
 
               {activeStep === 1 && (
                 <Stack spacing={2} className="slide-in" sx={{ width: "100%" }}>
-                  <TextField fullWidth label="Your full name" value={formData.ownerName} onChange={handleChange("ownerName")} />
-                  <TextField fullWidth label="Business email" type="email" value={formData.email} onChange={handleChange("email")} />
-                  <TextField fullWidth label="Create password" type="password" value={formData.password} onChange={handleChange("password")} />
+                  <TextField
+                    fullWidth
+                    label="Your full name"
+                    value={formData.ownerName}
+                    onChange={handleChange("ownerName")}
+                    onBlur={handleBlur("ownerName")}
+                    error={touched.ownerName && !!fieldError("ownerName", formData.ownerName)}
+                    helperText={touched.ownerName ? fieldError("ownerName", formData.ownerName) : ""}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Business email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange("email")}
+                    onBlur={handleBlur("email")}
+                    error={touched.email && !!fieldError("email", formData.email)}
+                    helperText={touched.email ? fieldError("email", formData.email) : ""}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Create password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange("password")}
+                    onBlur={handleBlur("password")}
+                    error={touched.password && !!fieldError("password", formData.password)}
+                    helperText={
+                      touched.password
+                        ? fieldError("password", formData.password)
+                        : "At least 8 characters, with an uppercase letter, a lowercase letter, and a number"
+                    }
+                  />
                 </Stack>
               )}
 
