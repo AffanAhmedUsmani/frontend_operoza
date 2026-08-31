@@ -14,9 +14,40 @@ import {
 } from "@mui/material";
 import { MdAudiotrack, MdCancel, MdCheckCircle, MdLock, MdPending } from "react-icons/md";
 import { useTheme } from "@mui/material/styles";
+import { State } from "country-state-city";
+
+/** Computes a whole-number age from a YYYY-MM-DD date-of-birth string, or
+ * null if the value isn't a complete/valid date yet - deliberately not
+ * persisted as its own payload field (see FieldEditorDialog's
+ * computes_age toggle) since a stored age would silently drift out of
+ * sync with the actual DOB over time. */
+function computeAge(dobValue) {
+  if (!dobValue) return null;
+  const dob = new Date(dobValue);
+  if (Number.isNaN(dob.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const hasHadBirthdayThisYear =
+    now.getMonth() > dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() >= dob.getDate());
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age >= 0 ? age : null;
+}
 
 /** Renders a single dynamic schema field in the sale editor. */
-function renderField(field, value, readOnly, onUpdatePayload, form, editingSale, audioFiles, onAudioFileChange, theme) {
+function renderField(
+  field,
+  value,
+  readOnly,
+  onUpdatePayload,
+  form,
+  editingSale,
+  audioFiles,
+  onAudioFileChange,
+  theme,
+  campaignCountryCode,
+  isAdmin,
+  onRemoveAudio,
+) {
   if (field.type === "textarea") {
     return (
       <TextField
@@ -53,19 +84,54 @@ function renderField(field, value, readOnly, onUpdatePayload, form, editingSale,
     );
   }
 
-  if (field.type === "date") {
+  if (field.type === "state") {
+    // Region options come from the campaign's own country (set once at
+    // creation - see CampaignBuilder.jsx), not a fixed US list regardless
+    // of context.
+    const regions = State.getStatesOfCountry(campaignCountryCode || "US");
     return (
       <TextField
         key={field.key}
         label={field.label}
-        type="date"
-        InputLabelProps={{ shrink: true }}
+        select
         fullWidth
         required={field.required}
         value={value}
         disabled={readOnly}
         onChange={(e) => onUpdatePayload(field.key, e.target.value)}
-      />
+      >
+        <MenuItem value="">Select...</MenuItem>
+        {regions.map((region) => (
+          <MenuItem key={region.isoCode} value={region.name}>{region.name}</MenuItem>
+        ))}
+      </TextField>
+    );
+  }
+
+  if (field.type === "date") {
+    const age = field.computes_age ? computeAge(value) : null;
+    return (
+      <Stack key={field.key} direction="row" spacing={1.5}>
+        <TextField
+          label={field.label}
+          type="date"
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+          required={field.required}
+          value={value}
+          disabled={readOnly}
+          onChange={(e) => onUpdatePayload(field.key, e.target.value)}
+        />
+        {field.computes_age && (
+          <TextField
+            label="Age"
+            value={age ?? ""}
+            disabled
+            sx={{ maxWidth: 120 }}
+            helperText="Auto-calculated"
+          />
+        )}
+      </Stack>
     );
   }
 
@@ -79,6 +145,16 @@ function renderField(field, value, readOnly, onUpdatePayload, form, editingSale,
         required={field.required}
         value={value}
         disabled={readOnly}
+        inputProps={{ min: field.min, max: field.max }}
+        helperText={
+          field.min !== undefined && field.max !== undefined
+            ? `Must be between ${field.min} and ${field.max}`
+            : field.min !== undefined
+            ? `Must be at least ${field.min}`
+            : field.max !== undefined
+            ? `Must be at most ${field.max}`
+            : undefined
+        }
         onChange={(e) => onUpdatePayload(field.key, e.target.value)}
       />
     );
@@ -146,6 +222,18 @@ function renderField(field, value, readOnly, onUpdatePayload, form, editingSale,
                 <Typography component="a" href={existingUrl} target="_blank" variant="caption" color="primary">
                   Listen
                 </Typography>
+              )}
+              {/* Admin-only: previously there was no way to remove a locked
+                  audio field at all, blocking a re-upload outright. */}
+              {isAdmin && !readOnly && (
+                <Button
+                  size="small"
+                  color="error"
+                  variant="text"
+                  onClick={() => onRemoveAudio?.(field.key)}
+                >
+                  Remove Audio
+                </Button>
               )}
             </Stack>
           ) : readOnly ? (
@@ -231,6 +319,7 @@ export default function SaleEditorDialog({
   onCampaignChange,
   onSetAgent,
   onUpdatePayload,
+  onRemoveAudio,
 }) {
   const theme = useTheme();
   const title = readOnly ? "View Sale" : editingSale ? "Edit Sale" : "Create Sale";
@@ -284,6 +373,9 @@ export default function SaleEditorDialog({
                 audioFiles,
                 onAudioFileChange,
                 theme,
+                selectedFormCampaign?.country_code,
+                isAdmin,
+                onRemoveAudio,
               )
             )
           )}

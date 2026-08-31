@@ -59,6 +59,14 @@ export default function SalesPanel({ accessToken }) {
   const [analysisSale, setAnalysisSale] = useState(null);
   const [followUpTargetSale, setFollowUpTargetSale] = useState(null);
   const [pendingAudioFiles, setPendingAudioFiles] = useState({});
+  // QA_FIX_PLAN.md step 11 - field keys an admin has explicitly cleared in
+  // this edit session, applied to audio_analysis_json on save (see
+  // handleSave). update_sale already restricts non-client, non-agent
+  // roles from touching audio_analysis_json at all for agents (they can't
+  // reach update_sale in the first place - "Agents cannot edit sales") and
+  // client is restricted to payload_json only, so this reuses that
+  // existing server-side boundary rather than adding a new one.
+  const [removedAudioFields, setRemovedAudioFields] = useState(new Set());
 
   const actorContext = useMemo(() => resolveActorContext(accessToken), [accessToken]);
   const actorRole = actorContext.role;
@@ -218,6 +226,7 @@ export default function SalesPanel({ accessToken }) {
       payload_json: buildPayloadDefaults(visibleSchema),
     });
     setPendingAudioFiles({});
+    setRemovedAudioFields(new Set());
     setEditorOpen(true);
   };
 
@@ -236,6 +245,7 @@ export default function SalesPanel({ accessToken }) {
       payload_json: sale.payload_json && typeof sale.payload_json === "object" ? sale.payload_json : {},
     });
     setPendingAudioFiles({});
+    setRemovedAudioFields(new Set());
     setEditorOpen(true);
   };
 
@@ -250,6 +260,7 @@ export default function SalesPanel({ accessToken }) {
       payload_json: sale.payload_json && typeof sale.payload_json === "object" ? sale.payload_json : {},
     });
     setPendingAudioFiles({});
+    setRemovedAudioFields(new Set());
     setEditorOpen(true);
   };
 
@@ -277,6 +288,34 @@ export default function SalesPanel({ accessToken }) {
       setError(`${missingRequired.label} is required.`);
       return false;
     }
+
+    // QA_FIX_PLAN.md step 10 - min/max on a number-type field previously
+    // existed only as an HTML5 inputProps hint (bypassable by pasting or
+    // via a direct API call) - this is the actual client-side enforcement,
+    // mirrored server-side in update_sale/create_sale.
+    const outOfRangeField = formSchema.find((field) => {
+      if (field.type !== "number") return false;
+      const raw = form.payload_json?.[field.key];
+      if (raw === null || raw === undefined || String(raw).trim() === "") return false;
+      const num = Number(raw);
+      if (Number.isNaN(num)) return false;
+      if (field.min !== undefined && num < field.min) return true;
+      if (field.max !== undefined && num > field.max) return true;
+      return false;
+    });
+    if (outOfRangeField) {
+      const min = outOfRangeField.min;
+      const max = outOfRangeField.max;
+      const range =
+        min !== undefined && max !== undefined
+          ? `between ${min} and ${max}`
+          : min !== undefined
+          ? `at least ${min}`
+          : `at most ${max}`;
+      setError(`${outOfRangeField.label} must be ${range}.`);
+      return false;
+    }
+
     return true;
   };
 
@@ -300,6 +339,21 @@ export default function SalesPanel({ accessToken }) {
       amount,
       payload_json: payloadJson,
     };
+
+    // Normal field edits never touch audio_analysis_json (only a real
+    // upload does, server-side, once analysis completes) - only include it
+    // here when Remove Audio actually cleared something this session.
+    if (removedAudioFields.size > 0 && editingSale) {
+      const existingAudioJson =
+        editingSale.audio_analysis_json && typeof editingSale.audio_analysis_json === "object"
+          ? editingSale.audio_analysis_json
+          : {};
+      const nextAudioJson = { ...existingAudioJson };
+      for (const fieldKey of removedAudioFields) {
+        delete nextAudioJson[fieldKey];
+      }
+      payload.audio_analysis_json = nextAudioJson;
+    }
 
     setSaving(true);
     setError("");
@@ -345,6 +399,7 @@ export default function SalesPanel({ accessToken }) {
       }
 
       setPendingAudioFiles({});
+    setRemovedAudioFields(new Set());
       setEditorOpen(false);
       await applyFilters();
     } catch (err) {
@@ -388,6 +443,19 @@ export default function SalesPanel({ accessToken }) {
         [key]: value,
       },
     }));
+  };
+
+  const handleRemoveAudio = (fieldKey) => {
+    setForm((prev) => ({
+      ...prev,
+      payload_json: { ...(prev.payload_json || {}), [fieldKey]: "" },
+    }));
+    setRemovedAudioFields((prev) => new Set(prev).add(fieldKey));
+    setPendingAudioFiles((prev) => {
+      const next = { ...prev };
+      delete next[fieldKey];
+      return next;
+    });
   };
 
   const handleCampaignChange = (campaignId) => {
@@ -473,6 +541,7 @@ export default function SalesPanel({ accessToken }) {
         onCampaignChange={handleCampaignChange}
         onSetAgent={(agentId) => setForm((prev) => ({ ...prev, agent_user_id: agentId }))}
         onUpdatePayload={updatePayloadValue}
+        onRemoveAudio={handleRemoveAudio}
       />
 
       <SaleAnalysisDialog

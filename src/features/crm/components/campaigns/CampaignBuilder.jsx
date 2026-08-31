@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Country } from "country-state-city";
 import {
   Alert,
   Box,
@@ -149,6 +150,13 @@ export default function CampaignBuilder({ accessToken, onCreated, onCancel }) {
   const [campaignName, setCampaignName] = useState("");
   const [currencyCode, setCurrencyCode] = useState("USD");
   const [currencyOptions, setCurrencyOptions] = useState([]);
+  // QA_FIX_PLAN.md steps 8 & 9 - set once at creation, defaults to US
+  // (most templates target US-based campaigns), same "set once, not
+  // editable afterward" design as currency_code above - a state/region
+  // field on the sale form reads this to know which country's regions to
+  // offer instead of always showing US states regardless of context.
+  const [countryCode, setCountryCode] = useState("US");
+  const countryOptions = useMemo(() => Country.getAllCountries(), []);
   const [fields, setFields] = useState([]);
   const [templateOptions, setTemplateOptions] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
@@ -331,7 +339,12 @@ export default function CampaignBuilder({ accessToken, onCreated, onCancel }) {
         }
         return entry;
       });
-      await createCampaign(accessToken, { name: campaignName.trim(), schema_json: schemaJson, currency_code: currencyCode });
+      await createCampaign(accessToken, {
+        name: campaignName.trim(),
+        schema_json: schemaJson,
+        currency_code: currencyCode,
+        country_code: countryCode,
+      });
       setSubmitSuccess("Campaign created successfully!");
       setTimeout(() => onCreated(), 1200);
     } catch (err) {
@@ -437,6 +450,19 @@ export default function CampaignBuilder({ accessToken, onCreated, onCancel }) {
         >
           {(currencyOptions.length ? currencyOptions : [{ code: currencyCode, name: currencyCode }]).map((c) => (
             <MenuItem key={c.code} value={c.code}>{c.code} — {c.name}</MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          label="Country"
+          select
+          fullWidth
+          sx={{ minWidth: { sm: 220 } }}
+          value={countryCode}
+          onChange={(e) => setCountryCode(e.target.value)}
+          helperText="Determines the region list on this campaign's State/Province fields"
+        >
+          {countryOptions.map((c) => (
+            <MenuItem key={c.isoCode} value={c.isoCode}>{c.name}</MenuItem>
           ))}
         </TextField>
       </Stack>

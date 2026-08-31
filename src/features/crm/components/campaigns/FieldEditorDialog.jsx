@@ -24,6 +24,7 @@ export const FIELD_TYPES = [
   { value: "number", label: "Number" },
   { value: "date", label: "Date" },
   { value: "select", label: "Select (dropdown)" },
+  { value: "state", label: "State / Province" },
   { value: "textarea", label: "Textarea" },
   { value: "audio", label: "Audio (MP3 / Call Recording)" },
 ];
@@ -155,6 +156,14 @@ export default function FieldEditorDialog({
     if (existingKeys.includes(field.key)) errs.key = "Key must be unique";
     if (field.type === "select" && !field.options.trim()) {
       errs.options = "Provide at least one option";
+    }
+    if (
+      field.type === "number" &&
+      field.min !== undefined &&
+      field.max !== undefined &&
+      Number(field.min) > Number(field.max)
+    ) {
+      errs.type = "Minimum value cannot be greater than maximum value";
     }
     const wasAudio = (initial?.type || "") === "audio";
     if (field.type === "audio" && !wasAudio && audioFieldCount >= audioLimit) {
@@ -307,6 +316,49 @@ export default function FieldEditorDialog({
               placeholder="Option A, Option B, Option C"
               helperText={errors.options || "Enter choices separated by commas"}
               error={!!errors.options}
+            />
+          )}
+
+          {field.type === "state" && (
+            <Alert severity="info">
+              Region options are filled in automatically from this campaign's country - nothing to
+              configure here.
+            </Alert>
+          )}
+
+          {field.type === "number" && (
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Minimum value (optional)"
+                type="number"
+                fullWidth
+                value={field.min ?? ""}
+                onChange={(e) => setField((prev) => ({ ...prev, min: e.target.value === "" ? undefined : Number(e.target.value) }))}
+              />
+              <TextField
+                label="Maximum value (optional)"
+                type="number"
+                fullWidth
+                value={field.max ?? ""}
+                onChange={(e) => setField((prev) => ({ ...prev, max: e.target.value === "" ? undefined : Number(e.target.value) }))}
+              />
+            </Stack>
+          )}
+
+          {field.type === "date" && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!field.computes_age}
+                  onChange={(e) => setField((prev) => ({ ...prev, computes_age: e.target.checked }))}
+                  color="warning"
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  This is a date of birth - show a read-only, auto-calculated Age field alongside it
+                </Typography>
+              }
             />
           )}
 
