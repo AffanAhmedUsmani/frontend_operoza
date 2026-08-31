@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 
+import Analytics from "./components/Analytics";
 import ScrollToTop from "./components/ScrollToTop";
 
 // Public marketing pages (PUBLIC_WEBSITE_SITEMAP.md) - own layout
@@ -37,6 +38,7 @@ function App() {
   return (
     <>
       <ScrollToTop />
+      <Analytics />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/start" element={<StartJourneyPage />} />
