@@ -4,7 +4,6 @@ import {
   Chip,
   IconButton,
   Stack,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
@@ -17,6 +16,24 @@ import { normalizeRole } from "../sales/salesFormUtils";
 // info/error palette (already mode-aware) rather than the tenant's
 // primary/secondary - the same "semantic color is separate from the
 // accent hue" rule the rest of the theme follows.
+// QA_FIX_PLAN.md step 14 - icons alone required a hover (invisible on
+// touch) or an actual click to discover what each one did. A permanently
+// visible micro-label under the icon removes that discovery step
+// entirely, without needing the horizontal space a full text button
+// would take in this card's narrow action column.
+function LabeledAction({ icon, label, onClick, color = "inherit" }) {
+  return (
+    <Stack alignItems="center" spacing={0} sx={{ minWidth: 44 }}>
+      <IconButton size="small" color={color} onClick={onClick} aria-label={label}>
+        {icon}
+      </IconButton>
+      <Typography variant="caption" color={color === "error" ? "error" : "text.secondary"} sx={{ fontSize: 10, lineHeight: 1 }}>
+        {label}
+      </Typography>
+    </Stack>
+  );
+}
+
 function getStatusStyles(theme) {
   return {
     draft: { bg: alpha(theme.palette.text.secondary, 0.12), color: theme.palette.text.secondary },
@@ -116,14 +133,16 @@ export default function CampaignCard({
         >
           <CampaignSalesWidget campaignId={campaign.campaign_id} accessToken={accessToken} />
           {canExportCampaign ? (
-            <Tooltip title="Export">
+            <Stack
+              alignItems="center"
+              spacing={0}
+              sx={{ position: "absolute", right: 8, bottom: 2 }}
+            >
               <IconButton
                 size="small"
+                aria-label="Export"
                 onClick={() => onOpenExport && onOpenExport(campaign)}
                 sx={{
-                  position: "absolute",
-                  right: 8,
-                  bottom: 7,
                   border: "1px solid",
                   borderColor: "divider",
                   bgcolor: "background.paper",
@@ -132,46 +151,50 @@ export default function CampaignCard({
               >
                 <MdDownload size={15} />
               </IconButton>
-            </Tooltip>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10, lineHeight: 1 }}>
+                Export
+              </Typography>
+            </Stack>
           ) : null}
         </Stack>
 
         <Stack
           direction="row"
-          alignItems="center"
+          alignItems="flex-start"
           justifyContent={{ xs: "flex-start", md: "center" }}
-          sx={{ px: 1.25, py: 1.1, minHeight: { md: 74 } }}
-          spacing={0.2}
+          sx={{ px: 1.25, py: 0.6, minHeight: { md: 74 } }}
+          spacing={0.4}
         >
           {canManageCampaign ? (
-            <Tooltip title="Team">
-              <IconButton size="small" onClick={() => onViewTeam && onViewTeam(campaign)}>
-                <MdPeople size={18} />
-              </IconButton>
-            </Tooltip>
+            <LabeledAction
+              icon={<MdPeople size={18} />}
+              label="Team"
+              onClick={() => onViewTeam && onViewTeam(campaign)}
+            />
           ) : null}
 
           {isAdmin && (
-            <Tooltip title="Delete">
-              <IconButton size="small" color="error" onClick={() => onDeleteCampaign && onDeleteCampaign(campaign)}>
-                <MdDeleteForever size={18} />
-              </IconButton>
-            </Tooltip>
+            <LabeledAction
+              icon={<MdDeleteForever size={18} />}
+              label="Delete"
+              color="error"
+              onClick={() => onDeleteCampaign && onDeleteCampaign(campaign)}
+            />
           )}
 
           {canManageCampaign ? (
             <>
-              <Tooltip title={`Fields (${fieldCount})`}>
-                <IconButton size="small" onClick={() => onEditFields && onEditFields(campaign)}>
-                  <MdViewList size={18} />
-                </IconButton>
-              </Tooltip>
+              <LabeledAction
+                icon={<MdViewList size={18} />}
+                label={`Fields (${fieldCount})`}
+                onClick={() => onEditFields && onEditFields(campaign)}
+              />
 
-              <Tooltip title="Settings">
-                <IconButton size="small" onClick={() => onOpenSettings && onOpenSettings(campaign)}>
-                  <MdSettings size={18} />
-                </IconButton>
-              </Tooltip>
+              <LabeledAction
+                icon={<MdSettings size={18} />}
+                label="Settings"
+                onClick={() => onOpenSettings && onOpenSettings(campaign)}
+              />
             </>
           ) : null}
         </Stack>
