@@ -19,7 +19,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { MdAdd, MdAssignmentInd, MdEdit, MdVisibility } from "react-icons/md";
+import { MdAdd, MdArrowBack, MdAssignmentInd, MdEdit, MdVisibility } from "react-icons/md";
 import { fetchTenantUsers } from "../../services/adminService";
 import { fetchCampaigns } from "../../services/campaignService";
 import { createReportFromTemplate, deleteReport, getReport, listReportTemplates, listReports } from "../../services/reportingService";
@@ -172,16 +172,27 @@ export default function ReportsPanel({ session, accessToken: tokenProp }) {
       <Stack spacing={2} sx={{ width: "100%" }}>
         <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }}>
+            {/* QA_FIX_PLAN.md step 18 - the back control existed but sat on
+                the right, plain text, the same visual weight as any other
+                secondary action - not where users conventionally scan for
+                "back" (top-left, ahead of the title). Moved there, given a
+                back-arrow icon, and made visually primary instead of
+                outlined so it reads as navigation, not just another button. */}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "stretch", sm: "center" }}>
+              <Button
+                variant="contained"
+                startIcon={<MdArrowBack />}
+                onClick={() => setViewerOpen(false)}
+                sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
+              >
+                Back To Reports
+              </Button>
               <Box>
                 <Typography variant="h6">Report Viewer</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {selected.name || "Selected report"}
                 </Typography>
               </Box>
-              <Button variant="outlined" onClick={() => setViewerOpen(false)}>
-                Back To Reports
-              </Button>
             </Stack>
           </CardContent>
         </Card>
