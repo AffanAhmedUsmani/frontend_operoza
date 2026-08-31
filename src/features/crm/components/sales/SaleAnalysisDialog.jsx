@@ -75,22 +75,39 @@ function normalizeAnalysis(entry) {
       : {};
   const summaryFromOutputs = Object.values(summaryOutputs).find((v) => typeof v === "string" && v.trim()) || null;
 
-  let summaryFromQuestions = null;
+  // Every configured questionnaire question (call_summary, next_step_summary,
+  // insurance_keywords, etc. - see crm/services.py's _AUDIO_CHECK_MAP) lands
+  // in analysis_results, not just one. Previously only the first "summary"
+  // row was ever read and "intent"-type rows (insurance intent, policy
+  // keywords, buy intent) weren't rendered anywhere at all - collecting all
+  // of them here, split by type, is the actual fix.
+  const summariesFromQuestions = [];
+  const signalsFromQuestions = [];
   const analysisResults = analysis.analysis_results;
   if (analysisResults && typeof analysisResults === "object" && !Array.isArray(analysisResults)) {
     for (const row of Object.values(analysisResults)) {
-      if (
-        row &&
-        typeof row === "object" &&
-        String(row.type || "").toLowerCase() === "summary" &&
-        typeof row.value === "string" &&
-        row.value.trim()
-      ) {
-        summaryFromQuestions = row.value;
-        break;
+      if (!row || typeof row !== "object") continue;
+      const rowType = String(row.type || "").toLowerCase();
+      const label = typeof row.label === "string" && row.label.trim() ? row.label : null;
+
+      if (rowType === "summary" && typeof row.value === "string" && row.value.trim()) {
+        summariesFromQuestions.push({ label: label || "Summary", value: row.value });
+      } else if (rowType === "intent" || rowType === "keyword" || rowType === "yes_no") {
+        // These are informational findings ("was X mentioned"), not
+        // pass/fail compliance rules - kept visually separate from Quality
+        // Checks (built from rule_results below), which is reserved for
+        // genuine rule evaluations.
+        const spans = row?.evidence?.spans;
+        const snippet = Array.isArray(spans) && spans.length > 0 ? spans[0]?.snippet : null;
+        signalsFromQuestions.push({
+          label: label || rowType,
+          detected: !!row.value,
+          text: snippet ? String(snippet) : null,
+        });
       }
     }
   }
+  const summaryFromQuestions = summariesFromQuestions[0]?.value || null;
 
   const aggregateSentiment = analysis?.aggregates?.sentiment_score;
   const sentiment = legacySentiment || sentimentFromScore(aggregateSentiment);
@@ -123,8 +140,21 @@ function normalizeAnalysis(entry) {
       ? analysis.transcript_metadata.transcript
       : null;
 
+  // Fall back to a single legacy/outputs-derived summary (labeled "Summary")
+  // only when the questionnaire itself produced none - keeps older payloads
+  // (from before per-question summaries existed) rendering exactly as
+  // before.
+  const summaries =
+    summariesFromQuestions.length > 0
+      ? summariesFromQuestions
+      : legacySummary || summaryFromOutputs
+      ? [{ label: "Summary", value: legacySummary || summaryFromOutputs }]
+      : [];
+
   return {
     summary: legacySummary || summaryFromOutputs || summaryFromQuestions,
+    summaries,
+    signals: signalsFromQuestions,
     transcript,
     sentiment,
     checks: legacyChecks || checksFromRules,
@@ -176,7 +206,8 @@ function CheckRow({ name, result }) {
 
 function AnalysisCard({ fieldKey, entry, saleId, accessToken }) {
   const normalized = normalizeAnalysis(entry);
-  const summary = normalized.summary;
+  const summaries = normalized.summaries || [];
+  const signals = normalized.signals || [];
   const transcript = normalized.transcript;
   const sentiment = normalized.sentiment;
   const checks = normalized.checks || {};
@@ -194,7 +225,8 @@ function AnalysisCard({ fieldKey, entry, saleId, accessToken }) {
   const sentMeta = sentimentMeta(sentiment);
   const checkEntries = Object.entries(checks);
   const fieldLabel = fieldKey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  const hasContent = transcript || summary || sentiment || checkEntries.length > 0 || duration;
+  const hasContent =
+    transcript || summaries.length > 0 || signals.length > 0 || sentiment || checkEntries.length > 0 || duration;
 
   const chipMeta =
     status === "failed"
@@ -283,13 +315,45 @@ function AnalysisCard({ fieldKey, entry, saleId, accessToken }) {
             </Box>
           )}
 
-          {/* Keep summary as fallback for older payloads without transcript */}
-          {!transcript && summary && (
-            <Box sx={{ bgcolor: "action.hover", borderRadius: 1, p: 1.5 }}>
-              <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-                CALL SUMMARY
+          {/* One box per configured summary-type question (call_summary,
+              next_step_summary, etc.) - previously only the first was ever
+              shown, labeled generically "CALL SUMMARY" regardless of which
+              question it actually was. */}
+          {summaries.map((item, index) => (
+            <Box key={`${item.label}-${index}`} sx={{ bgcolor: "action.hover", borderRadius: 1, p: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" display="block" mb={0.5} sx={{ textTransform: "uppercase" }}>
+                {item.label}
               </Typography>
-              <Typography variant="body2">{summary}</Typography>
+              <Typography variant="body2">{item.value}</Typography>
+            </Box>
+          ))}
+
+          {/* Informational findings (insurance intent, policy keywords, etc.)
+              - deliberately separate from Quality Checks below, which is
+              reserved for genuine pass/fail compliance rules. */}
+          {signals.length > 0 && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>
+                DETECTED SIGNALS
+              </Typography>
+              <Stack spacing={0.75}>
+                {signals.map((signal, index) => (
+                  <Stack key={`${signal.label}-${index}`} direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      color={signal.detected ? "success" : "default"}
+                      label={signal.detected ? "Detected" : "Not detected"}
+                    />
+                    <Typography variant="body2">{signal.label}</Typography>
+                    {signal.text && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                        "{signal.text}"
+                      </Typography>
+                    )}
+                  </Stack>
+                ))}
+              </Stack>
             </Box>
           )}
 
