@@ -395,6 +395,7 @@ function DashboardsPanel({ accessToken, role, campaigns = [] }) {
           onCreateFromTemplate={handleCreateFromTemplate}
           campaignId={campaignFilter}
           loading={templateCreating}
+          actorRole={role}
         />
       )}
 

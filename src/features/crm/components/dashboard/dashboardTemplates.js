@@ -187,13 +187,13 @@ export const BACKEND_DASHBOARD_TEMPLATES = [
     name: "QA Manager Dashboard",
     description: "Monitor call quality, compliance scores, and flagged issues requiring attention",
     icon: "🎯",
-    recommended_for: ["admin", "qa_manager"],
+    recommended_for: ["admin", "team_lead", "qa_manager"],
   },
   {
     name: "Finance Dashboard",
     description: "Track ROI, commission payouts, revenue streams, and profitability metrics",
     icon: "💰",
-    recommended_for: ["admin", "finance_manager"],
+    recommended_for: ["admin", "hr_manager", "finance_manager"],
   },
   {
     name: "Agent Dashboard",
@@ -211,13 +211,13 @@ export const BACKEND_DASHBOARD_TEMPLATES = [
     name: "Conversion War Room",
     description: "Campaign conversion bottlenecks, drop-off analysis, and fast action insights",
     icon: "⚔️",
-    recommended_for: ["admin", "team_lead"],
+    recommended_for: ["admin", "team_lead", "client"],
   },
   {
     name: "Revenue Acceleration Dashboard",
     description: "Revenue momentum with target tracking and commission pressure points",
     icon: "🚀",
-    recommended_for: ["admin", "team_lead", "finance_manager"],
+    recommended_for: ["admin", "team_lead", "hr_manager", "finance_manager"],
   },
   {
     name: "Quality Control Center",
@@ -235,6 +235,6 @@ export const BACKEND_DASHBOARD_TEMPLATES = [
     name: "Portfolio Health Dashboard",
     description: "Cross-campaign board balancing pipeline, ROI, quality, and targets",
     icon: "🧭",
-    recommended_for: ["admin", "superadmin", "team_lead"],
+    recommended_for: ["admin", "superadmin", "team_lead", "client"],
   },
 ];

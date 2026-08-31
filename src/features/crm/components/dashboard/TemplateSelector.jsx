@@ -24,10 +24,25 @@ import { BACKEND_DASHBOARD_TEMPLATES } from "./dashboardTemplates";
  * Miller's Law: shows templates in grid, one selection at a time.
  * Progressive disclosure: shows template description on click.
  */
-function TemplateSelector({ open, onClose, onCreateFromTemplate, campaignId, loading = false }) {
+function TemplateSelector({ open, onClose, onCreateFromTemplate, campaignId, loading = false, actorRole }) {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [dashboardName, setDashboardName] = useState("");
   const [error, setError] = useState("");
+
+  // QA_FIX_PLAN.md step 15 - every template's own recommended_for tag was
+  // already there in the data (dashboardTemplates.js), just never read by
+  // this picker - every role saw all 10 templates in one undifferentiated
+  // list regardless of fit. A hard filter would leave hr_manager/client
+  // (rarely tagged) looking at an empty or near-empty list, so this
+  // prioritizes instead of hiding: recommended-for-this-role templates
+  // surface first, everything else stays one section below, still fully
+  // available.
+  const normalizedRole = String(actorRole || "").trim().toLowerCase();
+  const recommended = normalizedRole
+    ? BACKEND_DASHBOARD_TEMPLATES.filter((t) => (t.recommended_for || []).includes(normalizedRole))
+    : [];
+  const recommendedNames = new Set(recommended.map((t) => t.name));
+  const others = BACKEND_DASHBOARD_TEMPLATES.filter((t) => !recommendedNames.has(t.name));
 
   const handleSelectTemplate = (template) => {
     setSelectedTemplate(template);
@@ -81,46 +96,53 @@ function TemplateSelector({ open, onClose, onCreateFromTemplate, campaignId, loa
 
       <DialogContent sx={{ pt: 2 }}>
         <Stack spacing={3}>
-          {/* Template Grid */}
-          <Box>
-            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-              Select a Template (Miller's Law: chunked choices)
-            </Typography>
-            <Grid container spacing={1.5}>
-              {BACKEND_DASHBOARD_TEMPLATES.map((template) => (
-                <Grid item xs={12} key={template.name}>
-                  <Card
-                    onClick={() => handleSelectTemplate(template)}
-                    sx={{
-                      cursor: "pointer",
-                      border: selectedTemplate?.name === template.name ? "2px solid" : "1px solid",
-                      borderColor: selectedTemplate?.name === template.name ? "primary.main" : "divider",
-                      bgcolor: selectedTemplate?.name === template.name ? "action.selected" : "transparent",
-                      transition: "all 0.2s ease",
-                      "&:hover": {
-                        bgcolor: "action.hover",
-                        borderColor: "primary.main",
-                      },
-                    }}
-                  >
-                    <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
-                      <Stack spacing={0.5}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Typography sx={{ fontSize: "1.5rem" }}>{template.icon}</Typography>
-                          <Typography variant="subtitle2" fontWeight={700}>
-                            {template.name}
-                          </Typography>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
-                          {template.description}
-                        </Typography>
-                      </Stack>
-                    </CardContent>
-                  </Card>
+          {/* Template Grid - grouped by relevance to the current role
+              (step 15), not one undifferentiated list */}
+          {["recommended", "others"].map((group) => {
+            const items = group === "recommended" ? recommended : others;
+            if (items.length === 0) return null;
+            return (
+              <Box key={group}>
+                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
+                  {group === "recommended" ? "Recommended for your role" : "Other templates"}
+                </Typography>
+                <Grid container spacing={1.5}>
+                  {items.map((template) => (
+                    <Grid item xs={12} key={template.name}>
+                      <Card
+                        onClick={() => handleSelectTemplate(template)}
+                        sx={{
+                          cursor: "pointer",
+                          border: selectedTemplate?.name === template.name ? "2px solid" : "1px solid",
+                          borderColor: selectedTemplate?.name === template.name ? "primary.main" : "divider",
+                          bgcolor: selectedTemplate?.name === template.name ? "action.selected" : "transparent",
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            bgcolor: "action.hover",
+                            borderColor: "primary.main",
+                          },
+                        }}
+                      >
+                        <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                          <Stack spacing={0.5}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontSize: "1.5rem" }}>{template.icon}</Typography>
+                              <Typography variant="subtitle2" fontWeight={700}>
+                                {template.name}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
+                              {template.description}
+                            </Typography>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
                 </Grid>
-              ))}
-            </Grid>
-          </Box>
+              </Box>
+            );
+          })}
 
           {/* Dashboard Name Input (only show when template selected) */}
           {selectedTemplate && (
