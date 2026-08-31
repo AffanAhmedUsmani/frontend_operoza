@@ -43,6 +43,8 @@ import { NotificationProvider } from "../../notifications/NotificationContext";
 import NotificationBell from "../../notifications/components/NotificationBell";
 import { MessagingProvider } from "../../messaging/MessagingContext";
 import ChatDock from "../../messaging/components/ChatDock";
+import FirstLoginTour from "../onboarding/FirstLoginTour";
+import HelpGuidanceButton from "../onboarding/HelpGuidanceButton";
 import MessagingNavBadge from "../../messaging/components/MessagingNavBadge";
 
 const DRAWER_WIDTH = 220;
@@ -142,6 +144,11 @@ function TenantCrmLayout({ tenantName, tenantLogoUrl, roleLabel, role, session, 
     };
   }, [theme.palette.primary.main]);
   const normalizedRole = normalizeRole(role || roleLabel);
+  // QA_FIX_PLAN.md steps 19 & 20 - shown once per user, gated on the flag
+  // the backend returns at login; dismissing (skip or finish) marks it
+  // seen via FirstLoginTour's own call, this local state just controls
+  // visibility within this session.
+  const [showFirstLoginTour, setShowFirstLoginTour] = useState(() => session?.user?.hasSeenOnboarding === false);
   const [assignedDashboards, setAssignedDashboards] = useState([]);
   const [hasAssignedReports, setHasAssignedReports] = useState(false);
   // Sprint 2 fix: for roles whose nav depends on these async fetches
@@ -500,6 +507,13 @@ function TenantCrmLayout({ tenantName, tenantLogoUrl, roleLabel, role, session, 
           so it's present no matter which screen is currently active,
           exactly like NotificationBell already is via NotificationProvider. */}
       <ChatDock accessToken={session?.accessToken} currentUserId={session?.user?.userId} />
+      <HelpGuidanceButton role={normalizedRole} activeScreenLabel={activeNavItem?.label} />
+      <FirstLoginTour
+        open={showFirstLoginTour}
+        role={normalizedRole}
+        accessToken={session?.accessToken}
+        onDismiss={() => setShowFirstLoginTour(false)}
+      />
     </MessagingProvider>
     </NotificationProvider>
   );

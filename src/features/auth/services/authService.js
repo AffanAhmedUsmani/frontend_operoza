@@ -31,6 +31,7 @@ function normalizeLoginResponse(data) {
       displayName: data.user.display_name,
       email: data.user.email,
       role: data.user.role,
+      hasSeenOnboarding: Boolean(data.user.has_seen_onboarding),
     },
     tenant: {
       tenantId: data.tenant.tenant_id,
@@ -132,6 +133,15 @@ async function loginTenant(payload) {
   return normalizeLoginResponse(data);
 }
 
+// QA_FIX_PLAN.md steps 19 & 20 - called once the first-login tour is shown
+// or explicitly skipped, so it never auto-shows again for this user.
+async function markOnboardingSeen(accessToken) {
+  return apiRequest("/api/auth/onboarding/seen", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
 async function requestPasswordReset(payload) {
   return apiRequest("/api/auth/password-reset/request", {
     method: "POST",
@@ -171,6 +181,7 @@ export {
   confirmPasswordReset,
   fetchPublicTenantBranding,
   loginTenant,
+  markOnboardingSeen,
   onboardTenant,
   requestPasswordReset,
   requestWorkspaceRecovery,
