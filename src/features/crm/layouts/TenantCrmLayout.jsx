@@ -81,6 +81,11 @@ function getNavItems(role, assignedDashboards = [], includeReportsForAssignees =
     dashboard: item,
   }));
 
+  // QA_FIX_PLAN.md step 13 - PERMISSION_MATRIX["settings"] (iam/permissions.py)
+  // grants access to admin only; hr_manager, team_lead, and client were
+  // incorrectly also getting a Settings nav item that led to a resource
+  // they had zero backend access to. Only agent's list was already
+  // correct.
   const NAV_MAP = {
     admin: [usersRoles, campaigns, sales, attendance, reports, dashboards, payroll, messages, settings],
     hr_manager: [
@@ -90,7 +95,6 @@ function getNavItems(role, assignedDashboards = [], includeReportsForAssignees =
       messages,
       ...(includeReportsForAssignees ? [reports] : []),
       ...assignedItems,
-      settings,
     ],
     team_lead: [
       dashboard,
@@ -102,13 +106,12 @@ function getNavItems(role, assignedDashboards = [], includeReportsForAssignees =
       payroll,
       followUps,
       messages,
-      settings,
     ],
     agent: [attendance, campaigns, sales, payroll, followUps, messages, ...(includeReportsForAssignees ? [reports] : []), ...assignedItems],
-    client: [campaigns, ...(includeReportsForAssignees ? [reports] : []), ...assignedItems, settings],
+    client: [campaigns, ...(includeReportsForAssignees ? [reports] : []), ...assignedItems],
   };
 
-  return NAV_MAP[role] ?? [dashboard, settings];
+  return NAV_MAP[role] ?? [dashboard];
 }
 
 function flattenNavItems(items) {
