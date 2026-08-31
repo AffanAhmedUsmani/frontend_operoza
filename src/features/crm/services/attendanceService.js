@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiRequest } from "../../../axious/api";
+import { apiRequest, fetchWithAuthRetry } from "../../../axious/api";
 
 function authHeaders(accessToken) {
   return {
@@ -53,7 +53,10 @@ async function exportAttendanceCsv(accessToken, params = {}) {
   if (params.endDate) query.set("end_date", params.endDate);
   if (params.userId) query.set("user_id", params.userId);
 
-  const response = await fetch(`${API_BASE_URL}/api/crm/attendance/report?${query.toString()}`, {
+  // fetchWithAuthRetry (not a raw fetch) so a token that expires mid-export
+  // gets silently refreshed and retried, same as every other authenticated
+  // call - see api.js.
+  const response = await fetchWithAuthRetry(`/api/crm/attendance/report?${query.toString()}`, {
     method: "GET",
     headers: authHeaders(accessToken),
   });

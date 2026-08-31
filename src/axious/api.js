@@ -71,16 +71,16 @@ function forceLogout() {
 	window.location.href = tenantSlug ? `/operoza/${tenantSlug}/login` : "/";
 }
 
-async function apiRequest(path, options = {}) {
+// Shared refresh-and-retry core, returning the raw Response so callers that
+// can't go through apiRequest's JSON-only contract (multipart file uploads,
+// blob/text export downloads) still get the same silent-refresh behavior
+// instead of each hand-rolling (or, as happened in practice, forgetting to
+// hand-roll) their own 401 handling. This is what apiRequest itself is built
+// on below - one refresh implementation, not two.
+async function fetchWithAuthRetry(path, options = {}) {
 	const hadAuthHeader = Boolean((options.headers || {}).Authorization);
 
-	const response = await fetch(buildApiUrl(path), {
-		headers: {
-			"Content-Type": "application/json",
-			...(options.headers || {}),
-		},
-		...options,
-	});
+	const response = await fetch(buildApiUrl(path), options);
 
 	// Only an already-authenticated request (one that sent an Authorization
 	// header) can have "the session expired" as the reason for a 401 - a
@@ -95,12 +95,24 @@ async function apiRequest(path, options = {}) {
 		if (newAccessToken) {
 			const retryHeaders = { ...(options.headers || {}) };
 			retryHeaders.Authorization = `Bearer ${newAccessToken}`;
-			return apiRequest(path, { ...options, headers: retryHeaders, _isRetry: true });
+			return fetchWithAuthRetry(path, { ...options, headers: retryHeaders, _isRetry: true });
 		}
 
 		forceLogout();
 		throw new Error("Session expired. Please log in again.");
 	}
+
+	return response;
+}
+
+async function apiRequest(path, options = {}) {
+	const response = await fetchWithAuthRetry(path, {
+		...options,
+		headers: {
+			"Content-Type": "application/json",
+			...(options.headers || {}),
+		},
+	});
 
 	const data = await response.json().catch(() => ({}));
 	if (!response.ok) {
@@ -116,4 +128,4 @@ async function apiRequest(path, options = {}) {
 	return data;
 }
 
-export { API_BASE_URL, NORMALIZED_API_BASE_URL, apiRequest };
+export { API_BASE_URL, NORMALIZED_API_BASE_URL, apiRequest, fetchWithAuthRetry };

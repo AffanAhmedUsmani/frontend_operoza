@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiRequest } from "../../../axious/api";
+import { apiRequest, fetchWithAuthRetry } from "../../../axious/api";
 
 // Sprint 9 (docs/SPRINT_PLAN.md) - DeductionRule/CommissionRule are
 // effective-dated policy history (payroll/models.py), not editable rows:
@@ -102,8 +102,11 @@ async function approvePayoutRecord(accessToken, payoutRecordId) {
 // own response content negotiation, which 404s when no "csv"/"pdf"
 // renderer exists (a real bug this export hit and fixed server-side).
 async function exportPayoutRecord(accessToken, payoutRecordId, exportFormat = "csv") {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/payouts/${payoutRecordId}/export/?export_format=${encodeURIComponent(exportFormat)}`,
+  // fetchWithAuthRetry (not a raw fetch) so a token that expires mid-export
+  // gets silently refreshed and retried, same as every other authenticated
+  // call - see api.js.
+  const response = await fetchWithAuthRetry(
+    `/api/v1/payouts/${payoutRecordId}/export/?export_format=${encodeURIComponent(exportFormat)}`,
     { headers: authHeaders(accessToken) },
   );
   if (!response.ok) {

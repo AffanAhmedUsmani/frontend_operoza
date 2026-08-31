@@ -1,4 +1,4 @@
-import { NORMALIZED_API_BASE_URL, apiRequest } from "../../../axious/api";
+import { apiRequest, fetchWithAuthRetry } from "../../../axious/api";
 
 function authHeaders(accessToken) {
   return {
@@ -66,7 +66,10 @@ async function importCampaignSheet(accessToken, { file, campaignName = "", statu
   if (campaignName.trim()) formData.append("campaign_name", campaignName.trim());
   if (statusCode.trim()) formData.append("status_code", statusCode.trim());
 
-  const response = await fetch(`${NORMALIZED_API_BASE_URL}/api/crm/campaigns/import-sheet`, {
+  // fetchWithAuthRetry (not a raw fetch) so an access token that expires
+  // mid-import gets silently refreshed and retried, same as every other
+  // authenticated call - see api.js.
+  const response = await fetchWithAuthRetry("/api/crm/campaigns/import-sheet", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -88,7 +91,12 @@ async function uploadCampaignAudio(accessToken, { file, campaignId, fieldKey, sa
   formData.append("field_key", fieldKey);
   if (saleId) formData.append("sale_id", saleId);
 
-  const response = await fetch(`${NORMALIZED_API_BASE_URL}/api/crm/campaigns/audio/upload`, {
+  // fetchWithAuthRetry (not a raw fetch) - this was the actual cause of
+  // "Invalid authorization token" on audio jobs: a raw fetch here never
+  // retried after the 15-minute access token expired, while every other
+  // authenticated call already refreshed silently via apiRequest. See
+  // api.js's fetchWithAuthRetry.
+  const response = await fetchWithAuthRetry("/api/crm/campaigns/audio/upload", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,

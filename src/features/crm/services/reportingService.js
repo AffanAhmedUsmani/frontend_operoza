@@ -1,5 +1,4 @@
-import { apiRequest } from "../../../axious/api";
-import { API_BASE_URL } from "../../../axious/api";
+import { apiRequest, fetchWithAuthRetry } from "../../../axious/api";
 
 function authHeaders(accessToken) {
   return { Authorization: `Bearer ${accessToken}` };
@@ -133,11 +132,17 @@ export async function createReportComment(accessToken, reportId, payload) {
 
 export async function exportReport(accessToken, reportId, format, runtimeFilters = {}) {
   const normalizedFormat = String(format || "").trim().toLowerCase();
-  const response = await fetch(`${API_BASE_URL}/api/crm/reports/${reportId}/export?format=${encodeURIComponent(normalizedFormat)}`, {
-    method: "POST",
-    headers: authHeaders(accessToken),
-    body: JSON.stringify({ runtime_filters: runtimeFilters }),
-  });
+  // fetchWithAuthRetry (not a raw fetch) so a token that expires mid-export
+  // gets silently refreshed and retried, same as every other authenticated
+  // call - see api.js.
+  const response = await fetchWithAuthRetry(
+    `/api/crm/reports/${reportId}/export?format=${encodeURIComponent(normalizedFormat)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify({ runtime_filters: runtimeFilters }),
+    }
+  );
 
   const contentType = response.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
