@@ -10,6 +10,9 @@ const SITE_NAME = "Operoza";
 // redirect") when the sitemap still listed the bare-domain URLs.
 const SITE_URL = "https://www.operoza.com";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
+// Add each profile here as soon as it exists - Facebook/Instagram aren't
+// live yet, so only LinkedIn is listed for now.
+const SOCIAL_PROFILES = ["https://www.linkedin.com/company/operoza/"];
 
 /**
  * Public-website foundation (PUBLIC_WEBSITE_SITEMAP.md Phase 3, Step 1).
@@ -49,6 +52,19 @@ export default function SeoHead({ title, description, path, noindex = false, ima
       <meta name="twitter:title" content={fullTitle} />
       {description ? <meta name="twitter:description" content={description} /> : null}
       <meta name="twitter:image" content={ogImage} />
+
+      {!path || path === "/" ? (
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: SITE_NAME,
+            url: SITE_URL,
+            logo: `${SITE_URL}/logo.png`,
+            sameAs: SOCIAL_PROFILES,
+          })}
+        </script>
+      ) : null}
     </Helmet>
   );
 }

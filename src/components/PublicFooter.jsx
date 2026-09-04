@@ -1,4 +1,5 @@
-import { Box, Container, Divider, Stack, Link as MuiLink, Typography } from "@mui/material";
+import { Box, Container, Divider, Stack, Link as MuiLink, Typography, IconButton } from "@mui/material";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import { Link } from "react-router-dom";
 
 /**
@@ -46,9 +47,22 @@ export default function PublicFooter() {
         </Stack>
 
         <Divider sx={{ my: 3 }} />
-        <Typography variant="caption" color="text.secondary">
-          © {new Date().getFullYear()} Operoza. All rights reserved.
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" spacing={2}>
+          <Typography variant="caption" color="text.secondary">
+            © {new Date().getFullYear()} Operoza. All rights reserved.
+          </Typography>
+          <IconButton
+            component="a"
+            href="https://www.linkedin.com/company/operoza/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Operoza on LinkedIn"
+            size="small"
+            color="inherit"
+          >
+            <LinkedInIcon fontSize="small" />
+          </IconButton>
+        </Stack>
       </Container>
     </Box>
   );
